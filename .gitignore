@@ -1,0 +1,42 @@
+/.build/
+/.swiftpm/
+/build/
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Xcode per-user state; keep shared project configuration and Package.resolved.
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.dSYM/
+*.app/
+*.dmg
+*.pkg
+*.xcarchive/
+
+# Local tools, measurements and private diagnostic/session data.
+/.codebase-memory/
+/artifacts/
+/local/
+# Never publish legacy personal pet assets or previews if restored locally.
+/Sources/CodexIsland/Resources/CurrentPet/
+/docs/assets/native-preview.png
+*.log
+*.trace
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.jsonl
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.mobileprovision
+
+# Editor scratch files.
+*.swp
+*.swo
+*~

@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1000" viewBox="0 0 1200 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Codex Island 外观概念</title>
+  <desc id="desc">四种刘海融合状态和一种无刘海胶囊形态。原创设计示意，非实际应用截图。</desc>
+  <defs>
+    <linearGradient id="desktop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#25383f"/>
+      <stop offset="1" stop-color="#182228"/>
+    </linearGradient>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
+      .label { fill: #dce4e4; font-size: 17px; font-weight: 600; }
+      .note { fill: #91a3a7; font-size: 13px; }
+      .status { fill: #f3f5f5; font-size: 15px; font-weight: 500; }
+      .secondary { fill: #9da7aa; font-size: 12px; }
+    </style>
+    <g id="screen">
+      <rect width="516" height="182" rx="14" fill="url(#desktop)" stroke="#3d5056"/>
+      <path d="M0 110 Q140 56 280 130 T516 102 V182 H0Z" fill="#325254" opacity=".3"/>
+      <text x="18" y="22" fill="#adbbbe" font-size="11">编辑器　 文件　 编辑　 显示</text>
+      <text x="426" y="22" fill="#adbbbe" font-size="11">周三 10:21</text>
+      <rect x="34" y="72" width="270" height="80" rx="7" fill="#172126" opacity=".6"/>
+      <path d="M50 91H140 M50 105H210 M50 119H172 M50 133H224" stroke="#68838b" stroke-width="3" opacity=".28"/>
+    </g>
+    <path id="expanded" d="M102 0 H414 Q404 0 404 12 V66 Q404 90 380 90 H136 Q112 90 112 66 V12 Q112 0 102 0Z" fill="#030404"/>
+    <path id="compact" d="M140 0 H376 Q366 0 366 10 V20 Q366 39 347 39 H169 Q150 39 150 20 V10 Q150 0 140 0Z" fill="#030404"/>
+    <path id="notch" d="M194 0 H322 V16 Q322 29 309 29 H207 Q194 29 194 16Z" fill="#000"/>
+  </defs>
+
+  <rect width="1200" height="1000" fill="#101719"/>
+  <text x="56" y="66" fill="#f3f6f6" font-size="34" font-weight="600">Codex Island</text>
+  <text x="56" y="100" class="note" font-size="15">Atoll 视觉方向 · 顶部融合 · 状态驱动形变 · 点击打开 Codex</text>
+  <text x="56" y="133" fill="#6f8389" font-size="12">外观概念 / 2026-10-21 / 非应用截图，比例与尺寸仅供设计评审</text>
+
+  <g transform="translate(56 183)">
+    <text y="0" class="label">01　工作中 / 紧凑态</text>
+    <g transform="translate(0 24)">
+      <use href="#screen"/>
+      <use href="#compact"/>
+      <use href="#notch"/>
+      <circle cx="172" cy="18" r="7" fill="none" stroke="#4c5b62" stroke-width="2"/>
+      <path d="M172 11 A7 7 0 0 1 179 18" fill="none" stroke="#f0f3f5" stroke-width="2.5" stroke-linecap="round"/>
+      <text x="343" y="23" fill="#e6edf0" font-size="11" text-anchor="middle">运行</text>
+    </g>
+    <text y="230" class="note">刘海两侧保留状态；工作期间持续显示。</text>
+  </g>
+
+  <g transform="translate(628 183)">
+    <text y="0" class="label">02　需要你 / 提醒态</text>
+    <g transform="translate(0 24)">
+      <use href="#screen"/>
+      <use href="#expanded"/>
+      <use href="#notch"/>
+      <circle cx="147" cy="53" r="11" fill="#352b16"/>
+      <text x="147" y="59" fill="#e4b95e" font-size="16" text-anchor="middle" font-weight="600">!</text>
+      <text x="169" y="55" class="status">需要你</text>
+      <text x="169" y="75" class="secondary">另有 2 项运行中</text>
+      <circle cx="378" cy="51" r="3" fill="#e4b95e"/>
+    </g>
+    <text y="230" class="note">自动向下展开，等待用户在 Codex 中处理。</text>
+  </g>
+
+  <g transform="translate(56 479)">
+    <text y="0" class="label">03　待查看 / 完成态</text>
+    <g transform="translate(0 24)">
+      <use href="#screen"/>
+      <use href="#expanded"/>
+      <use href="#notch"/>
+      <circle cx="147" cy="53" r="11" fill="#172c24"/>
+      <path d="M142 53 L146 57 L153 49" fill="none" stroke="#85b99b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="169" y="55" class="status">待查看</text>
+      <text x="169" y="75" class="secondary">2 项结果待查看</text>
+      <circle cx="378" cy="51" r="3" fill="#85b99b"/>
+    </g>
+    <text y="230" class="note">跟随真实未读状态，不因超时自动消失。</text>
+  </g>
+
+  <g transform="translate(628 479)">
+    <text y="0" class="label">04　工作受阻 / 异常态</text>
+    <g transform="translate(0 24)">
+      <use href="#screen"/>
+      <use href="#expanded"/>
+      <use href="#notch"/>
+      <circle cx="147" cy="53" r="11" fill="#342021"/>
+      <path d="M143 49 L151 57 M151 49 L143 57" stroke="#d58e8e" stroke-width="2" stroke-linecap="round"/>
+      <text x="169" y="55" class="status">工作受阻</text>
+      <text x="169" y="75" class="secondary">另有 1 项运行中</text>
+      <circle cx="378" cy="51" r="3" fill="#d58e8e"/>
+    </g>
+    <text y="230" class="note">静态提醒；详情和恢复操作都在 Codex 中。</text>
+  </g>
+
+  <path d="M56 761 H1144" stroke="#2c3a3e"/>
+  <text x="56" y="806" class="label">05　无刘海 / 顶部胶囊</text>
+  <text x="56" y="835" class="note">位于菜单栏下方的安全区域。</text>
+  <text x="56" y="859" class="note">空闲时隐藏；连接故障明确标示状态不可用。</text>
+  <rect x="685" y="793" width="320" height="44" rx="22" fill="#030404"/>
+  <circle cx="713" cy="815" r="7" fill="none" stroke="#64767f" stroke-width="2"/>
+  <path d="M713 808 A7 7 0 0 1 720 815" fill="none" stroke="#f0f3f5" stroke-width="2" stroke-linecap="round"/>
+  <text x="734" y="820" class="status">Codex · 工作中</text>
+  <rect x="959" y="803" width="30" height="24" rx="12" fill="#1a2428"/>
+  <text x="974" y="820" fill="#d2dce0" font-size="12" text-anchor="middle">2</text>
+
+  <text x="56" y="935" fill="#b5c2c6" font-size="14">唯一动作：点击岛体 → 打开 Codex</text>
+  <text x="56" y="962" fill="#72868d" font-size="12">不展示聊天内容、任务标题或进度摘要；不提供审批、输入或任务控制。数量仅在来源可验证时显示。</text>
+</svg>

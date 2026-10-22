@@ -1,0 +1,347 @@
+import CSQLite
+import Foundation
+import IslandCore
+
+public enum FeedError: String, Error, Sendable {
+    case missingDatabase, incompatibleSchema, databaseUnavailable, queryTimedOut, oversized, invalidRollout
+}
+
+public struct FeedObservation: Sendable {
+    public let snapshot: ActivitySnapshot
+    public let trackedThreads: Int
+    public let activeThreads: Int
+    public let caughtUp: Bool
+    public let supportsUnread = false
+}
+
+/// Select title and activity metadata only; messages, credentials and tool
+/// argument contents never enter the feed. Each read reopens SQLite read-only so file
+/// replacement and Codex restarts cannot leave a stale database handle alive.
+public actor LocalSessionFeed {
+    private let home: URL
+    private var sessionID = UUID().uuidString
+    private var startedAt = Date()
+    private var cursors: [String: RolloutCursor] = [:]
+    private var focusedID: String?
+
+    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")) {
+        self.home = home
+    }
+
+    public func reset() {
+        sessionID = UUID().uuidString
+        startedAt = Date()
+        cursors.removeAll()
+        focusedID = nil
+    }
+
+    public func read() throws -> FeedObservation {
+        let rows = try StatusDatabase.read(home: home)
+        guard rows.filter({ $0.status == "inProgress" }).count <= 32 else { throw FeedError.oversized }
+        var activities: [WorkState] = []
+        var activeIDs = Set<String>()
+        var caughtUp = true
+        var candidates: [(row: SessionRow, state: WorkState, activity: SessionActivity)] = []
+        for row in rows {
+            switch row.status {
+            case "inProgress":
+                activeIDs.insert(row.id)
+                var cursor = cursors[row.id] ?? RolloutCursor()
+                do {
+                    try cursor.update(row: row, home: home)
+                    caughtUp = caughtUp && cursor.caughtUp
+                    let state: WorkState = cursor.signals.needsInput && cursor.caughtUp ? .needsInput : .running
+                    activities.append(state)
+                    candidates.append((row, state, state == .needsInput ? .needsInput : .from(itemType: row.itemType, status: row.itemStatus)))
+                } catch {
+                    // The history database proves the turn is active even when
+                    // the optional rollout signal stream is unavailable.
+                    cursor = RolloutCursor()
+                    caughtUp = false
+                    activities.append(.running)
+                    candidates.append((row, .running, .from(itemType: row.itemType, status: row.itemStatus)))
+                }
+                cursors[row.id] = cursor
+            case "failed":
+                // Do not resurrect historical failures at startup. There is no
+                // verified UI unread identity in this compatibility source.
+                if let endedAt = row.completedAt, endedAt >= startedAt.timeIntervalSince1970 {
+                    activities.append(.blocked)
+                    candidates.append((row, .blocked, .failed))
+                }
+            case "completed", "interrupted": break
+            default: throw FeedError.incompatibleSchema
+            }
+        }
+        cursors = cursors.filter { activeIDs.contains($0.key) }
+        let priority: [WorkState: Int] = [.needsInput: 4, .blocked: 3, .ready: 2, .running: 1, .idle: 0]
+        let selected = candidates.max {
+            let left = priority[$0.state, default: 0], right = priority[$1.state, default: 0]
+            if left != right { return left < right }
+            if $0.row.activityAt != $1.row.activityAt { return $0.row.activityAt < $1.row.activityAt }
+            return $0.row.id < $1.row.id
+        }
+        let focus = selected?.row ?? rows.first(where: { $0.id == focusedID }) ?? rows.max { $0.activityAt < $1.activityAt }
+        focusedID = focus?.id
+        return FeedObservation(
+            snapshot: ActivitySnapshot(source: "local-session-history-v1", sessionID: sessionID,
+                                       observedAt: Date(), activities: activities,
+                                       sessionTitle: focus?.title, activity: selected?.activity ?? .idle),
+            trackedThreads: rows.count, activeThreads: activeIDs.count, caughtUp: caughtUp)
+    }
+}
+
+struct SessionRow {
+    let id: String
+    let path: String
+    let turnID: String
+    let status: String
+    let offset: UInt64
+    let completedAt: Double?
+    let title: String?
+    let itemType: String?
+    let itemStatus: String?
+    let activityAt: Double
+}
+
+private enum StatusDatabase {
+    static func read(home: URL) throws -> [SessionRow] {
+        let state = home.appendingPathComponent("state_5.sqlite")
+        let history = home.appendingPathComponent("thread_history_1.sqlite")
+        guard FileManager.default.fileExists(atPath: state.path),
+              FileManager.default.fileExists(atPath: history.path) else { throw FeedError.missingDatabase }
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(state.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK,
+              let db else {
+            if let db { sqlite3_close(db) }
+            throw FeedError.databaseUnavailable
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 100)
+        var attach: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "ATTACH DATABASE ? AS history", -1, &attach, nil) == SQLITE_OK else {
+            throw FeedError.incompatibleSchema
+        }
+        defer { sqlite3_finalize(attach) }
+        let uri = history.absoluteString + "?mode=ro"
+        let bound = uri.withCString { sqlite3_bind_text(attach, 1, $0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }
+        guard bound == SQLITE_OK, sqlite3_step(attach) == SQLITE_DONE else { throw FeedError.databaseUnavailable }
+        // NULL agent_path is used by older root sessions. Explicit subagents
+        // and archived threads never contribute a second activity.
+        // The CASE inside the item key is intentional: the LEFT JOIN's status
+        // predicate alone does not prevent SQLite evaluating the correlated
+        // sorter for completed turns. Idle must never scan old tool items.
+        let sql = """
+        SELECT t.id, t.rollout_path, h.turn_id, h.status, h.rollout_byte_offset, h.completed_at,
+               substr(COALESCE(NULLIF(trim(t.name),''),t.title),1,512), i.item_type,
+               CASE WHEN json_valid(i.item_json) THEN json_extract(i.item_json,'$.status') END,
+               COALESCE(i.completed_at_ms,i.started_at_ms,i.created_at_ms,h.completed_at*1000,h.started_at*1000,0)
+        FROM threads t JOIN history.thread_turns h ON h.thread_id=t.id
+        LEFT JOIN history.thread_items i ON h.status='inProgress' AND i.thread_id=h.thread_id AND i.turn_id=h.turn_id
+          AND i.item_id=CASE WHEN h.status='inProgress' THEN
+            (SELECT item_id FROM history.thread_items z WHERE z.thread_id=h.thread_id AND z.turn_id=h.turn_id
+             ORDER BY COALESCE(z.updated_at_ordinal,z.rollout_ordinal) DESC,z.rollout_ordinal DESC LIMIT 1) END
+        WHERE t.archived=0 AND (t.agent_path IS NULL OR t.agent_path='/root')
+          AND CASE WHEN json_valid(t.source) THEN json_type(t.source,'$.subagent') IS NULL ELSE 1 END
+          AND h.turn_id=(SELECT x.turn_id FROM history.thread_turns x
+                         WHERE x.thread_id=t.id ORDER BY x.rollout_ordinal DESC LIMIT 1)
+        LIMIT 10001
+        """
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { throw FeedError.incompatibleSchema }
+        defer { sqlite3_finalize(statement) }
+        var deadline = Date().timeIntervalSinceReferenceDate + 0.3
+        return try withUnsafeMutablePointer(to: &deadline) { deadline in
+            sqlite3_progress_handler(db, 1000, { pointer in
+                guard let pointer else { return 1 }
+                return Date().timeIntervalSinceReferenceDate > pointer.assumingMemoryBound(to: Double.self).pointee ? 1 : 0
+            }, deadline)
+            defer { sqlite3_progress_handler(db, 0, nil, nil) }
+            var rows: [SessionRow] = []
+            while true {
+                let result = sqlite3_step(statement)
+                if result == SQLITE_DONE { break }
+                if result == SQLITE_INTERRUPT { throw FeedError.queryTimedOut }
+                guard result == SQLITE_ROW else { throw FeedError.databaseUnavailable }
+                func text(_ column: Int32) throws -> String {
+                    guard sqlite3_column_type(statement, column) == SQLITE_TEXT,
+                          let value = sqlite3_column_text(statement, column) else { throw FeedError.incompatibleSchema }
+                    return String(cString: value)
+                }
+                let offset = sqlite3_column_int64(statement, 4)
+                guard offset >= 0 else { throw FeedError.incompatibleSchema }
+                rows.append(SessionRow(id: try text(0), path: try text(1), turnID: try text(2), status: try text(3),
+                                       offset: UInt64(offset), completedAt: sqlite3_column_type(statement, 5) == SQLITE_NULL
+                                       ? nil : sqlite3_column_double(statement, 5),
+                                       title: sqlite3_column_type(statement, 6) == SQLITE_NULL ? nil : try text(6),
+                                       itemType: sqlite3_column_type(statement, 7) == SQLITE_NULL ? nil : try text(7),
+                                       itemStatus: sqlite3_column_type(statement, 8) == SQLITE_NULL ? nil : try text(8),
+                                       activityAt: sqlite3_column_double(statement, 9)))
+                guard rows.count <= 10_000 else { throw FeedError.oversized }
+            }
+            return rows
+        }
+    }
+}
+
+private struct RolloutCursor {
+    private var turnID: String?
+    private var fileID: UInt64?
+    private var offset: UInt64 = 0
+    private var pending = Data()
+    private(set) var signals = RolloutSignals()
+    private(set) var caughtUp = false
+
+    mutating func update(row: SessionRow, home: URL) throws {
+        let path = URL(fileURLWithPath: row.path).resolvingSymlinksInPath()
+        let allowed = home.appendingPathComponent("sessions").resolvingSymlinksInPath().path + "/"
+        guard path.path.hasPrefix(allowed) else { throw FeedError.invalidRollout }
+        let attributes = try FileManager.default.attributesOfItem(atPath: path.path)
+        guard let size = (attributes[.size] as? NSNumber)?.uint64Value,
+              let inode = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value else { throw FeedError.invalidRollout }
+        if turnID != row.turnID || fileID != inode || offset > size {
+            turnID = row.turnID
+            fileID = inode
+            offset = row.offset
+            pending.removeAll()
+            signals = RolloutSignals()
+        }
+        guard offset <= size else { throw FeedError.invalidRollout }
+        let handle = try FileHandle(forReadingFrom: path)
+        defer { try? handle.close() }
+        try handle.seek(toOffset: offset)
+        let data = try handle.read(upToCount: 262_144) ?? Data()
+        offset += UInt64(data.count)
+        pending.append(data)
+        while let newline = pending.firstIndex(of: 10) {
+            let line = Data(pending[..<newline])
+            pending.removeSubrange(...newline)
+            guard line.count <= 1_048_576 else { throw FeedError.oversized }
+            try signals.consume(line, turnID: row.turnID)
+        }
+        guard pending.count <= 1_048_576 else { throw FeedError.oversized }
+        caughtUp = offset == size && pending.isEmpty
+    }
+}
+
+/// Retain only pending call IDs and question indices. Decode question counts,
+/// acceptance flags and structured reply IDs only for the corresponding events;
+/// question titles, answers and ordinary tool outputs are never retained.
+public struct RolloutSignals: Sendable {
+    private static let maximumPendingRequests = 1024
+    private static let maximumCallIDBytes = 512
+    private var pendingCalls = Set<String>()
+    private struct AsyncQuestion: Sendable {
+        var remaining: Set<Int>
+        var accepted = false
+    }
+    private var asyncQuestions: [String: AsyncQuestion] = [:]
+    public var needsInput: Bool {
+        !pendingCalls.isEmpty || asyncQuestions.values.contains { $0.accepted && !$0.remaining.isEmpty }
+    }
+    public init() {}
+
+    public mutating func consume(_ line: Data, turnID: String) throws {
+        let decoder = JSONDecoder()
+        let event = try decoder.decode(Event.self, from: line)
+        guard let payload = event.payload else { return }
+        if let id = payload.turn_id, id != turnID { return }
+        let type = payload.type ?? ""
+        if event.type == "event_msg", ["task_started", "task_complete", "turn_complete", "turn_aborted"].contains(type) {
+            pendingCalls.removeAll()
+            asyncQuestions.removeAll()
+            return
+        }
+        guard event.type == "response_item" else { return }
+        if type == "message", payload.role == "user" {
+            let message = try decoder.decode(Envelope<UserMessage>.self, from: line).payload
+            for part in message.content where part.type == "input_text" {
+                guard let text = part.text else { continue }
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                let start = "<send_user_message_question_reply>", end = "</send_user_message_question_reply>"
+                guard trimmed.hasPrefix(start), trimmed.hasSuffix(end) else { continue }
+                let body = trimmed.dropFirst(start.count).dropLast(end.count)
+                guard let replies = try? decoder.decode([QuestionReply].self, from: Data(body.utf8)) else { continue }
+                for reply in replies {
+                    guard let id = try? decoder.decode(QuestionID.self, from: Data(reply.questionItemId.utf8)),
+                          Self.asyncNames.contains(id.tool), var question = asyncQuestions[id.call] else { continue }
+                    question.remaining.remove(id.index)
+                    if question.remaining.isEmpty { asyncQuestions.removeValue(forKey: id.call) }
+                    else { asyncQuestions[id.call] = question }
+                }
+            }
+            return
+        }
+        guard let callID = payload.call_id, !callID.isEmpty else { return }
+        if type == "function_call" {
+            if ["request_user_input", "functions.request_user_input"].contains(payload.name ?? "") {
+                try checkCapacity(for: callID)
+                pendingCalls.insert(callID)
+            } else if Self.asyncNames.contains(payload.name ?? "") {
+                let arguments = try decoder.decode(Envelope<Arguments>.self, from: line).payload.arguments
+                if let data = arguments?.data(using: .utf8),
+                   let questions = try? decoder.decode(Questions.self, from: data),
+                   (1...32).contains(questions.questions.count) {
+                    try checkCapacity(for: callID)
+                    asyncQuestions[callID] = AsyncQuestion(remaining: Set(questions.questions.indices))
+                }
+            }
+        } else if type == "function_call_output" {
+            pendingCalls.remove(callID)
+            if var question = asyncQuestions[callID] {
+                let output = try decoder.decode(Envelope<Output>.self, from: line).payload.output
+                if let data = output?.data(using: .utf8),
+                   let result = try? decoder.decode(Acceptance.self, from: data), result.accepted {
+                    question.accepted = true
+                    asyncQuestions[callID] = question
+                } else { asyncQuestions.removeValue(forKey: callID) }
+            }
+        }
+    }
+
+    private func checkCapacity(for callID: String) throws {
+        guard callID.utf8.count <= Self.maximumCallIDBytes,
+              pendingCalls.contains(callID) || asyncQuestions[callID] != nil
+                || pendingCalls.count + asyncQuestions.count < Self.maximumPendingRequests else {
+            throw FeedError.oversized
+        }
+    }
+
+    private static let asyncNames = ["request_user_input_async", "functions.request_user_input_async"]
+    private struct Envelope<Payload: Decodable>: Decodable { let payload: Payload }
+    private struct Arguments: Decodable { let arguments: String? }
+    private struct Output: Decodable { let output: String? }
+    private struct Questions: Decodable {
+        let questions: [Question]
+        struct Question: Decodable {}
+    }
+    private struct Acceptance: Decodable { let accepted: Bool }
+    private struct UserMessage: Decodable {
+        let content: [Part]
+        struct Part: Decodable { let type: String?; let text: String? }
+    }
+    private struct QuestionReply: Decodable { let questionItemId: String }
+    private struct QuestionID: Decodable {
+        let tool: String
+        let call: String
+        let index: Int
+        init(from decoder: any Decoder) throws {
+            var values = try decoder.unkeyedContainer()
+            tool = try values.decode(String.self)
+            call = try values.decode(String.self)
+            index = try values.decode(Int.self)
+            guard values.isAtEnd, index >= 0 else { throw FeedError.invalidRollout }
+        }
+    }
+    private struct Event: Decodable {
+        let type: String?
+        let payload: Payload?
+        struct Payload: Decodable {
+            let type: String?
+            let name: String?
+            let call_id: String?
+            let turn_id: String?
+            let role: String?
+        }
+    }
+}

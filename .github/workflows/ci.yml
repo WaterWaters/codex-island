@@ -1,0 +1,42 @@
+name: macOS checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-package:
+    name: Test and package (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-14, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: swift --version
+      - name: Public files and documentation
+        run: python3 Scripts/verify_repository.py
+      - name: Script syntax
+        run: |
+          bash -n Scripts/test.sh Scripts/package_app.sh Scripts/package_release.sh
+          python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("Scripts/probe_desktop_ipc.py").read_text())'
+      - name: Tests with synthetic fixtures
+        run: ./Scripts/test.sh
+      - name: Release app and signature
+        run: |
+          ./Scripts/package_app.sh
+          codesign --verify --deep --strict build/CodexIsland.app
