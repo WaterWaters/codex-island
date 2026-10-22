@@ -8,7 +8,9 @@
 - [x] 公开构建移除个人宠物和相关预览 / 元数据依赖，私有原件本机保留。
 - [x] 增加 MIT、忽略规则、安全 / 隐私 / 贡献 / 素材说明、GitHub CI 和报告模板。
 - [x] 新版公开文件集的最终测试及打包验证，结果登记在 release-readiness.md。
-- [ ] 建立独立 GitHub 仓库、启用私密漏洞报告，确认首次远端 CI。
+- [x] 建立独立 GitHub 仓库、启用私密漏洞报告，推送公开源码。
+- [x] 配置 macOS 14 Apple Silicon / macOS 15 Intel CI，以及版本标签触发的通用 DMG / ZIP Preview 发布流程。
+- 对应提交的实际运行结果见 [Actions](https://github.com/WaterWaters/codex-island/actions)，发布结果见 [Releases](https://github.com/WaterWaters/codex-island/releases)。
 
 ## 后续真实场景
 

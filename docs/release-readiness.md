@@ -1,10 +1,10 @@
 # GitHub 发布准备记录
 
-日期：2026-10-22；源码 / 本机包版本 0.7.2 build 12，尚未发布。
+日期：2026-10-22；版本 0.7.2 build 12，公开源码及 Preview 发布流程。
 
 ## 当前结论
 
-已完成源码审查、局部健壮性修复、公开文件整理及文档补全。源码可按下方清单准备独立仓库。正式二进制分发仍需签名 / 公证及真实系统验收，当前不宣称完成。
+已完成源码审查、局部健壮性修复、公开文件整理及文档补全，已建立独立公开仓库 [WaterWaters/codex-island](https://github.com/WaterWaters/codex-island)。Preview 包采用 ad-hoc 签名；Developer ID 签名 / 公证及真实桌面场景验收仍未完成。
 
 用户明确要求个人宠物不公开、不上传。原图、元数据、含个人宠物的预览和私人历史笔记已本机保留到被忽略的 `local/`；公开源码、测试、SwiftPM 资源和打包步骤都不依赖它们。默认使用系统图标，内置宠物仅从使用者本机 Codex 按需读取。源码采用 MIT，素材边界见 [说明](../THIRD_PARTY_NOTICES.md)。
 
@@ -24,7 +24,7 @@
 | 构建强制使用新工具链特有构建系统 | 改用当前工具链默认构建系统；配置 / CPU 架构参数校验 |
 | 个人宠物随包携带 | 移至忽略目录；公开构建无私人素材依赖；测试使用生成的几何色块 |
 
-SQL 只读 / 静态查询 / 参数绑定、rollout 规范路径约束、快照完整性 / 新鲜度 / 顺序校验和只读 AX 均已核对。公开工作流只读仓库权限、checkout 固定 SHA、不保存凭据，且不会上传应用或自动发布。
+SQL 只读 / 静态查询 / 参数绑定、rollout 规范路径约束、快照完整性 / 新鲜度 / 顺序校验和只读 AX 均已核对。测试与构建工作流使用只读仓库权限，checkout 固定 SHA、不保存凭据。独立发布任务获得 contents:write，仅在版本标签校验、Release 测试、公开包内容检查及下载校验和通过后自动发布 Preview；详见 [发布流程](releases.md)。
 
 ## 验证结果
 
@@ -35,22 +35,23 @@ SQL 只读 / 静态查询 / 参数绑定、rollout 规范路径约束、快照�
 - 原生探针短采样：10 次查询无错误，约 10.639 秒墙钟、0.057 秒 user CPU / 0.049 秒 system CPU、峰值 RSS 15.44MiB；179 个根会话，只有 1 次已追平事件，其余仍在增量追赶。这是探针进程读路径数据，不是整应用、UI / GPU、长期内存或全部等待状态的验收。
 - 0.7.2 build 12 arm64 Release 打包及 codesign --verify --deep --strict 通过。应用包包含两个可执行文件、Info.plist、签名及新生成的品牌 AppIcon.icns，无个人宠物图片或资源；新增图标已通过 macOS 解码及随包检查。
 - 无私人目录 / 图片、无旧缓存的干净导出副本：72 项默认功能测试通过，2 项显式检查（本机安装版集成 / 性能基准）跳过。原目录显式启用本机集成后 73 项功能测试通过。
-- Shell / Python 语法、Markdown 本地链接、忽略规则和公开文件中的私人素材标记均检查；没有创建提交或上传 GitHub。
+- Shell / Python 语法、Markdown 本地链接、忽略规则和公开文件中的私人素材标记均检查；公开文件已精确暂存、提交并上传独立仓库，私人目录从未进入该仓库历史。
+- 两个通用二进制均已检查 arm64 / x86_64 架构及 macOS 14 最低部署目标。本机 ZIP 成功，DMG 因本机磁盘映像环境报“设备未配置”；完整 DMG / ZIP 构建交由 GitHub macOS runner 执行。
 
-本机 CLT 链接器提示其缺少部分 Developer 库搜索目录，但本次编译 / 测试通过；未修改系统工具链。GitHub 工作流已配置，远端运行待首次上传后确认。
+本机 CLT 链接器提示其缺少部分 Developer 库搜索目录，但本次编译 / 测试通过；未修改系统工具链。[远端 CI](https://github.com/WaterWaters/codex-island/actions/workflows/ci.yml) 在 macOS 14 Apple Silicon 和 macOS 15 Intel runner 上分别测试并打包。首次运行暴露了 Bash 3.2 严格模式下的空数组兼容问题，已改用位置参数。结果以对应提交的 Actions 记录为准；这些检查不覆盖完整 GUI 场景。
 
-## 上传步骤
+## 仓库与发布
 
-1. 使用仅含公开文件的 `build/codex-island-source.tar.gz`，解压到新的独立目录；不要压缩或上传当前整个工作目录，不要强制添加忽略目录。
-2. 在解压后的 codex-island 目录建立独立 Git 仓库。当前开发目录属于父级 Playground 仓库，不能把父目录的其他项目一起上传。
-3. 检查候选文件只含本工程源码 / 文档 / CI，不含 `local/`、`.build/`、`build/`、个人图像 / 预览、数据库、JSONL、证书或凭据。
-4. 按文件或目录精确暂存并核对暂存差异，再创建提交。建议提交说明：`chore: prepare Codex Island for public source release`。
-5. 新建 GitHub 仓库，启用私密漏洞报告及可用的秘密扫描保护，推送后检查 macOS CI。此文档和本机包不代表这些远端操作已经执行。
+- 当前项目已有独立 `.git` 和 `origin`，不再依赖父级 Playground 仓库；首次公开历史只包含本工程文件。
+- 已启用 GitHub 私密漏洞报告、秘密扫描及推送保护；公开文件检查和应用包文件白名单同时阻止私人素材误入源码或二进制。
+- 主分支推送触发双平台 CI；待对应提交全部通过后才创建版本标签。版本标签触发通用 DMG / ZIP / SHA256SUMS 自动构建与 Preview 发布。
+- 发布记录见 [GitHub Releases](https://github.com/WaterWaters/codex-island/releases)，具体流程和失败恢复边界见 [发布指南](releases.md)。
+- 不要压缩或上传整个本机工作目录，不要强制添加忽略目录。继续按文件精确暂存并检查差异；`build/`、`local/`、聊天数据库、JSONL、证书和凭据不得提交。
 
 ## 后续验收
 
 - [ ] Developer ID 签名与公证；当前为本机 ad-hoc。
-- [ ] macOS 14 和 Intel 实机；当前仅验证 arm64 环境。
+- [ ] macOS 14 和 Intel 的真实桌面场景；托管 runner 的测试和构建不替代实机 GUI 验收。
 - [ ] 真实辅助功能审批卡片、全屏 / Space、锁屏唤醒、Codex 重启及热插拔。
 - [ ] 30 分钟整应用 CPU / 内存 / 唤醒 / 能耗；当前只有合成基准和探针短采样。
 - [ ] 坏事件重试退避 / 恢复、描述符相对路径竞态加固和解析器 fuzzing。

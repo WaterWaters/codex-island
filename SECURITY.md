@@ -17,6 +17,6 @@ Codex Island 是本机状态展示工具，独立于 OpenAI。它没有网络监
 
 目前是 0.x 本机会话兼容版本，仅维护最新源码。内部数据库及安装包结构可能随 Codex 升级变化；“同步不可用”应与空闲明确区分。本项目不是同一 OS 账户内恶意进程之间的安全隔离边界。
 
-公开仓库前请启用 GitHub 的私密漏洞报告入口。发现疑似漏洞时，使用仓库 **Security → Report a vulnerability**，提供版本、脱敏复现步骤、影响和相关源码位置。如果该入口尚未启用，请勿在公开 Issue 中上传凭据、聊天数据、完整数据库或攻击细节。普通兼容性问题可提交脱敏 Issue。
+仓库已启用 [GitHub 私密漏洞报告](https://github.com/WaterWaters/codex-island/security/advisories/new)。发现疑似漏洞时，使用该入口（**Security → Report a vulnerability**），提供版本、脱敏复现步骤、影响和相关源码位置。请勿在公开 Issue 中上传凭据、聊天数据、完整数据库或攻击细节。普通兼容性问题可提交脱敏 Issue。
 
 首次静态审查及验证边界见 [发布准备记录](docs/release-readiness.md)。尚未公证的本机 ad-hoc 应用不应被描述为正式分发版本。
