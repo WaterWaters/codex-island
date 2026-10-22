@@ -26,6 +26,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Select Swift 6 on macOS 14
+        if: matrix.runner == 'macos-14'
+        run: sudo xcode-select --switch /Applications/Xcode_16.2.app/Contents/Developer
       - name: Toolchain
         run: swift --version
       - name: Public files and documentation

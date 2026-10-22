@@ -38,7 +38,7 @@ SQL 只读 / 静态查询 / 参数绑定、rollout 规范路径约束、快照�
 - Shell / Python 语法、Markdown 本地链接、忽略规则和公开文件中的私人素材标记均检查；公开文件已精确暂存、提交并上传独立仓库，私人目录从未进入该仓库历史。
 - 两个通用二进制均已检查 arm64 / x86_64 架构及 macOS 14 最低部署目标。本机 ZIP 成功，DMG 因本机磁盘映像环境报“设备未配置”；完整 DMG / ZIP 构建交由 GitHub macOS runner 执行。
 
-本机 CLT 链接器提示其缺少部分 Developer 库搜索目录，但本次编译 / 测试通过；未修改系统工具链。[远端 CI](https://github.com/WaterWaters/codex-island/actions/workflows/ci.yml) 在 macOS 14 Apple Silicon 和 macOS 15 Intel runner 上分别测试并打包。首次运行暴露了 Bash 3.2 严格模式下的空数组兼容问题，已改用位置参数。结果以对应提交的 Actions 记录为准；这些检查不覆盖完整 GUI 场景。
+本机 CLT 链接器提示其缺少部分 Developer 库搜索目录，但本次编译 / 测试通过；未修改系统工具链。[远端 CI](https://github.com/WaterWaters/codex-island/actions/workflows/ci.yml) 在 macOS 14 Apple Silicon 和 macOS 15 Intel runner 上分别测试并打包。首次运行暴露了 Bash 3.2 严格模式下的空数组兼容问题，已改用位置参数；macOS 14 镜像默认 Swift 5.10，现显式选择已安装的 Xcode 16.2 / Swift 6。结果以对应提交的 Actions 记录为准；这些检查不覆盖完整 GUI 场景。
 
 ## 仓库与发布
 
