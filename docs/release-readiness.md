@@ -40,6 +40,12 @@ SQL 只读 / 静态查询 / 参数绑定、rollout 规范路径约束、快照�
 
 本机 CLT 链接器提示其缺少部分 Developer 库搜索目录，但本次编译 / 测试通过；未修改系统工具链。[远端 CI](https://github.com/WaterWaters/codex-island/actions/workflows/ci.yml) 在 macOS 14 Apple Silicon 和 macOS 15 Intel runner 上分别测试并打包。首次运行暴露了 Bash 3.2 严格模式下的空数组兼容问题，已改用位置参数；macOS 14 镜像默认 Swift 5.10，现显式选择已安装的 Xcode 16.2 / Swift 6。结果以对应提交的 Actions 记录为准；这些检查不覆盖完整 GUI 场景。
 
+## 首次远端验收
+
+发布标签 `v0.7.2` 指向源码提交 `3972e81eeb1f5872c8a77d3780e29bb70e11b4a3`。该提交的 [macOS CI](https://github.com/WaterWaters/codex-island/actions/runs/39762880690) 已通过：macOS 14 Apple Silicon 与 macOS 15 Intel 分别完成公开文件检查、默认功能测试、Release app 打包及签名检查。远端测试同样使用合成数据，不依赖个人宠物或真实聊天。
+
+标签已推送并触发 [Preview 发布工作流](https://github.com/WaterWaters/codex-island/actions/workflows/release.yml)。完整安装包和发布结果以 [Releases](https://github.com/WaterWaters/codex-island/releases) 为准；本节的 CI 结果不等于 Developer ID 公证、交互式 GUI 或长期能耗验收。
+
 ## 仓库与发布
 
 - 当前项目已有独立 `.git` 和 `origin`，不再依赖父级 Playground 仓库；首次公开历史只包含本工程文件。

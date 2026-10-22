@@ -10,7 +10,9 @@
 - [x] 新版公开文件集的最终测试及打包验证，结果登记在 release-readiness.md。
 - [x] 建立独立 GitHub 仓库、启用私密漏洞报告，推送公开源码。
 - [x] 配置 macOS 14 Apple Silicon / macOS 15 Intel CI，以及版本标签触发的通用 DMG / ZIP Preview 发布流程。
-- 对应提交的实际运行结果见 [Actions](https://github.com/WaterWaters/codex-island/actions)，发布结果见 [Releases](https://github.com/WaterWaters/codex-island/releases)。
+- [x] 首次远端 macOS 14 Apple Silicon / macOS 15 Intel 测试、打包及签名检查通过，创建 `v0.7.2` 标签。
+
+对应提交的实际运行结果见 [Actions](https://github.com/WaterWaters/codex-island/actions)，发布结果见 [Releases](https://github.com/WaterWaters/codex-island/releases)。
 
 ## 后续真实场景
 

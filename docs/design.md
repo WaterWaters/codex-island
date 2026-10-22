@@ -1,6 +1,6 @@
 # 产品与技术设计
 
-版本：0.7.2（待发布）。macOS 14+，Swift 6 / SwiftUI / AppKit，无第三方 Swift 包依赖。
+版本：0.7.2 Preview。macOS 14+，Swift 6 / SwiftUI / AppKit，无第三方 Swift 包依赖。
 
 ## 展示与交互
 
