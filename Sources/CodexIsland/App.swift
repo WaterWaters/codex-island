@@ -78,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.isExternalFeed = options.statusFile != nil
         model.isLocalFeed = options.demo == nil && options.statusFile == nil
         panel = IslandPanelController()
-        panel?.onClickThroughChange = { [weak self] active in
+        panel?.onClickThroughChange = { @MainActor @Sendable [weak self] active in
             self?.model.isClickThrough = active
             self?.menuBar?.updateStatus()
         }

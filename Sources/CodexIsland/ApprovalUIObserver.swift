@@ -22,8 +22,12 @@ actor ApprovalUIObserver {
             let role = attribute(element, kAXRoleAttribute) as? String
             if role == kAXButtonRole {
                 guard (attribute(element, kAXEnabledAttribute) as? Bool) == true else { return (false, []) }
-                let label = (attribute(element, kAXTitleAttribute) as? String)
-                    ?? (attribute(element, kAXDescriptionAttribute) as? String) ?? ""
+                let label: String
+                if let title = attribute(element, kAXTitleAttribute) as? String {
+                    label = title
+                } else {
+                    label = (attribute(element, kAXDescriptionAttribute) as? String) ?? ""
+                }
                 return (false, [ApprovalControl(label: String(label.prefix(120)))])
             }
             var controls: [ApprovalControl] = []
