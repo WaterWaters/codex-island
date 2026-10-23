@@ -54,7 +54,7 @@ struct PetAvatarView: View {
     let paused: Bool
     var stageWidth: CGFloat = 48
     var atlas: PetAtlas?
-    var petID = IslandSettings.fallbackPetID
+    var petID = IslandSettings.defaultPetID
     var timing = PetTimingProfile.compatibility
     @PlaybackState private var pose = PetPose(motion: .idle, index: 0)
     @PlaybackState private var positionX: Double?

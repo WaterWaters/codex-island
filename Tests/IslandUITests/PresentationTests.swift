@@ -1,4 +1,5 @@
 import Testing
+import DesktopFeed
 import Foundation
 import IslandCore
 import Darwin
@@ -27,16 +28,35 @@ import ImageIO
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
     try encoder.encode(snapshot).write(to: url, options: .atomic)
-    guard case .snapshot(let result) = await SnapshotFileSource(url: url).read() else {
+    guard case .snapshot(let result, let health) = await SnapshotFileSource(url: url).read() else {
         Issue.record("A valid regular snapshot file must remain readable")
         return
     }
     #expect(result.activities == [.running])
+    #expect(health == nil)
     try Data(repeating: 32, count: 262_145).write(to: url, options: .atomic)
     guard case .unavailable = await SnapshotFileSource(url: url).read() else {
         Issue.record("An oversized file must be rejected")
         return
     }
+}
+
+@MainActor @Test func incompleteLocalEventsRemainWorkingWithVisibleHealth() {
+    let model = IslandModel()
+    model.isLocalFeed = true
+    model.connection = .connected
+    model.summary = .reduce([.running])
+    model.activity = .thinking
+    model.localFeedHealth = FeedHealth(caughtUp: false)
+    #expect(model.displayDetail == "思考中 · 同步中")
+    model.localFeedHealth = FeedHealth(caughtUp: false, degradedThreads: 1, retryingThreads: 1)
+    #expect(model.displayDetail == "思考中 · 同步受限")
+    #expect(model.accessibilityDescription.contains("同步受限"))
+    #expect(model.state == .running)
+    model.localFeedHealth = FeedHealth(caughtUp: true)
+    #expect(model.displayDetail == "思考中")
+    model.connection = .unavailable
+    #expect(model.displayDetail == "状态暂不可用")
 }
 
 @MainActor @Test func idleStaysVisibleUntilCodexExits() {
@@ -154,12 +174,14 @@ import ImageIO
     }
 }
 
-@MainActor @Test func publicBuildHasAnAssetFreeFallback() async {
-    let library = PetLibrary()
-    #expect(library.pets.map(\.id) == [IslandSettings.fallbackPetID])
+@MainActor @Test func missingAssetsDoNotAddASelectableSystemPlaceholder() async {
+    let missing = FileManager.default.temporaryDirectory.appendingPathComponent("missing-pets-\(UUID().uuidString)")
+    let library = PetLibrary(home: missing, cacheDirectory: missing)
+    #expect(library.pets.isEmpty)
     #expect(library.atlas == nil)
-    #expect(await library.synchronize(applicationURL: nil, selectedID: IslandSettings.fallbackPetID, force: false))
-    #expect(library.selectedID == IslandSettings.fallbackPetID)
+    #expect(!(await library.synchronize(applicationURL: nil, selectedID: IslandSettings.defaultPetID, force: false)))
+    #expect(library.pets.isEmpty)
+    #expect(library.selectedID == IslandSettings.defaultPetID)
     #expect(library.atlas == nil)
 }
 

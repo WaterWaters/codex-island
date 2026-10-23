@@ -18,8 +18,8 @@ if [[ -n "$PREVIEW_STATE" ]]; then
   BUNDLE_ID=dev.water.codex-island.preview
 fi
 MACOS_MIN_VERSION=14.0
-MARKETING_VERSION=0.7.2
-BUILD_NUMBER=12
+MARKETING_VERSION=0.7.3
+BUILD_NUMBER=13
 ARCH_LIST=( ${ARCHES:-$(uname -m)} )
 export CLANG_MODULE_CACHE_PATH="$ROOT/.build/module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT/.build/module-cache"
@@ -47,6 +47,20 @@ trap 'rm -rf "$STAGING"' EXIT
 STAGED_APP="$STAGING/${APP_NAME}.app"
 mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
 cp "$ROOT/Artwork/AppIcon.icns" "$STAGED_APP/Contents/Resources/AppIcon.icns"
+# Reconstruct the resource bundle from an explicit public file list. Never
+# copy a build bundle wholesale: incremental outputs can retain old resources.
+BRAND_BUNDLE="$STAGED_APP/Contents/Resources/CodexIsland_CodexIsland.bundle"
+mkdir -p "$BRAND_BUNDLE/Contents/Resources/Brand"
+cp "$ROOT/Sources/CodexIsland/Resources/Brand/AppIcon.png" "$BRAND_BUNDLE/Contents/Resources/Brand/AppIcon.png"
+cat > "$BRAND_BUNDLE/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>dev.water.codex-island.brand</string>
+  <key>CFBundleName</key><string>CodexIsland_CodexIsland</string>
+  <key>CFBundlePackageType</key><string>BNDL</string>
+</dict></plist>
+PLIST
 
 if [[ ${#BINARIES[@]} -gt 1 ]]; then
   lipo -create "${BINARIES[@]}" -output "$STAGED_APP/Contents/MacOS/$APP_NAME"

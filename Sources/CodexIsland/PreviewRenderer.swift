@@ -4,6 +4,47 @@ import IslandCore
 
 @MainActor
 enum PreviewRenderer {
+    static let galleryStates: [WorkState] = [.running, .needsInput, .blocked, .idle]
+
+    static func sampleModel(state: WorkState) -> IslandModel {
+        let model = IslandModel(preferences: IslandPreferences())
+        model.connection = .connected
+        model.isDemo = true
+        model.animationsPaused = true
+        model.sessionTitle = "构建 Codex Island"
+        model.activity = switch state {
+        case .running: .runningCommand
+        case .needsInput: .needsInput
+        case .blocked: .failed
+        case .idle: .idle
+        case .ready: nil
+        }
+        model.summary = .reduce(state == .idle ? [] : [state])
+        return model
+    }
+
+    static func renderGallery(to directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for state in galleryStates {
+            for notched in [true, false] {
+                let model = sampleModel(state: state)
+                let name = "\(state.rawValue)-\(notched ? "notched" : "standard").png"
+                try write(DesktopPreview(state: state, model: model, notched: notched),
+                          to: directory.appendingPathComponent(name))
+            }
+        }
+    }
+
+    private static func write<Content: View>(_ content: Content, to url: URL) throws {
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 2
+        guard let cgImage = renderer.cgImage,
+              let png = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try png.write(to: url, options: .atomic)
+    }
+
     static func render(to url: URL) throws {
         let samples = [WorkState.running, .needsInput, .blocked, .idle].map { state in
             let model = IslandModel()
@@ -23,6 +64,78 @@ enum PreviewRenderer {
         }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try png.write(to: url, options: .atomic)
+    }
+}
+
+/// A native view composition, not a desktop screenshot. All session metadata
+/// is synthetic and preferences are in memory; no Codex assets are loaded.
+private struct DesktopPreview: View {
+    let state: WorkState
+    let model: IslandModel
+    let notched: Bool
+
+    private var label: String {
+        switch state {
+        case .running: "Working"
+        case .needsInput: "Needs your input"
+        case .blocked: "Work blocked"
+        case .idle: "Idle"
+        case .ready: "Ready"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 9) {
+                Circle().fill(IslandPalette.tint(for: state)).frame(width: 7, height: 7)
+                Text(label).font(.system(size: 15, weight: .semibold))
+                Spacer()
+                Text(notched ? "MacBook · Notched display" : "External · Standard display")
+                    .font(.system(size: 11)).foregroundStyle(.white.opacity(0.55))
+            }
+            ZStack(alignment: .top) {
+                LinearGradient(colors: [Color(red: 0.07, green: 0.14, blue: 0.19),
+                                         Color(red: 0.035, green: 0.065, blue: 0.10)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                Ellipse().fill(Color.cyan.opacity(0.055)).frame(width: 580, height: 130)
+                    .blur(radius: 35).offset(x: -130, y: 110)
+                HStack(spacing: 12) {
+                    Image(systemName: "apple.logo").font(.system(size: 12))
+                    Text("Codex Island").font(.system(size: 10, weight: .semibold))
+                    Spacer()
+                    if let icon = BrandAssets.menuBarIcon {
+                        Image(nsImage: icon).resizable().frame(width: 15, height: 15)
+                    }
+                    Image(systemName: "wifi").font(.system(size: 11))
+                    Text("09:41").font(.system(size: 10, weight: .medium, design: .monospaced))
+                }
+                .padding(.horizontal, 18).frame(height: 26)
+                .background(.black.opacity(0.18))
+                IslandView(model: model,
+                           geometry: .layout(screenWidth: 600, notchWidth: notched ? 180 : 0,
+                                             notchHeight: notched ? 32 : 0, expanded: true), openCodex: {})
+                    .offset(y: notched ? 0 : 36)
+                if notched {
+                    UnevenRoundedRectangle(bottomLeadingRadius: 8, bottomTrailingRadius: 8)
+                        .fill(.black).frame(width: 180, height: 32)
+                }
+                VStack {
+                    Spacer()
+                    HStack {
+                        Text("Codex Island").font(.system(size: 11, weight: .semibold))
+                        Spacer()
+                        Text("Native view preview · Synthetic content")
+                            .font(.system(size: 9)).foregroundStyle(.white.opacity(0.35))
+                    }.foregroundStyle(.white.opacity(0.5))
+                }.padding(18)
+            }
+            .frame(width: 600, height: 224)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.10), lineWidth: 1))
+        }
+        .padding(24).foregroundStyle(.white)
+        .background(Color(red: 0.035, green: 0.047, blue: 0.06))
+        .fixedSize()
     }
 }
 

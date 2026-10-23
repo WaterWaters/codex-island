@@ -17,6 +17,7 @@ enum FeedProbe {
                 let states = observation.snapshot.activities.reduce(into: [String: Int]()) { $0[$1.rawValue, default: 0] += 1 }
                 let output: [String: Any] = ["source": observation.snapshot.source, "trackedThreads": observation.trackedThreads,
                     "activeThreads": observation.activeThreads, "caughtUp": observation.caughtUp,
+                    "degradedThreads": observation.degradedThreads, "retryingThreads": observation.retryingThreads,
                     "supportsUnread": observation.supportsUnread, "petParityVerified": false, "states": states,
                     "activity": observation.snapshot.activity?.rawValue ?? "unknown",
                     "hasSessionTitle": observation.snapshot.displaySessionTitle != nil]

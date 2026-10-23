@@ -19,12 +19,26 @@
 </p>
 
 <p align="center">
-  <a href="#features">功能亮点</a> · <a href="#getting-started">快速开始</a> · <a href="#privacy">隐私</a> · <a href="#documentation">文档</a>
+  <a href="#previews">界面预览</a> · <a href="#features">功能亮点</a> · <a href="#getting-started">快速开始</a> · <a href="#privacy">隐私</a> · <a href="#documentation">文档</a>
 </p>
 
 Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作进行到哪一步、什么时候需要你回答，抬眼就能看到；点击状态岛即可回到 Codex。
 
 **独立项目，与 OpenAI 无关联。** 当前为围绕本机 Codex 兼容性开发的 0.x 预览版。
+
+<a id="previews"></a>
+## 看看状态岛的样子
+
+四种日常状态，分别展示在 MacBook 刘海屏和普通外接屏上。会话标题在上、当前活动在下，不同状态使用清晰可辨的轮廓提示。
+
+下图使用合成内容和原生 SwiftUI 视图渲染，展示当前简体中文界面与缺少素材时的备用猫图形；屏幕背景为示意构图，并非桌面截图或硬件验收证据。[预览生成方式](assets/previews/README.md)。
+
+| MacBook · 刘海屏 | 外接显示器 · 普通屏 |
+| :---: | :---: |
+| <img src="assets/previews/running-notched.png" alt="刘海屏上的工作中状态岛" width="440"><br><strong>工作中</strong><br>抬眼查看命令和工具活动。 | <img src="assets/previews/running-standard.png" alt="普通外接屏上的工作中状态岛" width="440"><br><strong>工作中</strong><br>抬眼查看命令和工具活动。 |
+| <img src="assets/previews/needsInput-notched.png" alt="刘海屏上的待回答提示" width="440"><br><strong>需要你</strong><br>需要回答时，给你清晰的提示。 | <img src="assets/previews/needsInput-standard.png" alt="普通外接屏上的待回答提示" width="440"><br><strong>需要你</strong><br>需要回答时，给你清晰的提示。 |
+| <img src="assets/previews/blocked-notched.png" alt="刘海屏上的工作受阻状态" width="440"><br><strong>工作受阻</strong><br>回合失败时，使用独立的错误状态。 | <img src="assets/previews/blocked-standard.png" alt="普通外接屏上的工作受阻状态" width="440"><br><strong>工作受阻</strong><br>回合失败时，使用独立的错误状态。 |
+| <img src="assets/previews/idle-notched.png" alt="刘海屏上的空闲状态岛" width="440"><br><strong>空闲</strong><br>Codex 开着时，安静留在视线里。 | <img src="assets/previews/idle-standard.png" alt="普通外接屏上的空闲状态岛" width="440"><br><strong>空闲</strong><br>Codex 开着时，安静留在视线里。 |
 
 <a id="features"></a>
 ## 少切几次窗口
@@ -33,7 +47,7 @@ Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作�
 - **需要你时，给个提示。** 已识别的待回答问题触发脉冲，错误使用独立视觉状态。
 - **融入 macOS。** SwiftUI 与 AppKit 原生界面，避让刘海，支持菜单栏控制和减少动态效果。
 - **按你的习惯调整。** 自定义颜色、高度、显隐和动画；中键点击即可临时穿透 30 秒。
-- **可选的小伙伴。** 使用系统图标，或从本机已安装的 Codex 选择内置宠物，不随包携带个人宠物图片。
+- **你的 Codex 小伙伴。** 支持内置、本地自定义和本机已缓存的云端宠物，不随包携带个人图片。云端素材缺失时，在 Codex 查看该宠物后重新同步。[素材来源与限制](pet-animation.md)。
 - **默认只在本机工作。** 只读本地状态，应用没有遥测或网络服务。
 
 <a id="getting-started"></a>
@@ -62,7 +76,7 @@ open build/CodexIsland.app
 | --- | --- |
 | 左键点击状态岛 | 打开 Codex |
 | 中键点击状态岛 | 半透明，并让鼠标穿透 30 秒 |
-| 打开菜单栏菜单 | 显示或隐藏、换宠物、调整外观、重新同步 |
+| 打开菜单栏菜单 | 显示或隐藏、换宠物、调整外观，分别重新同步状态和宠物 |
 | 开启减少动态效果，或暂停动画 | 保持安静的显示效果 |
 
 工作时轮廓流动，已识别的问题等待使用介入色脉冲，错误使用红色脉冲，空闲时进入低亮状态。回合完成**不等于**存在未读结果。
@@ -84,7 +98,7 @@ open build/CodexIsland.app
 | 完整未读、远端 / 云端聊天、与 Codex 宠物完全同源 | 不支持 |
 | 所有全屏 / Space 组合、显示器变化、长时性能 | 尚未完整验收 |
 
-Codex 的内部数据格式可能变化。来源不兼容时会显示不可用，不会假装空闲。当前可执行程序读取 `~/.codex/`，尚未接入 `CODEX_HOME` 覆盖。详见 [本机来源边界](local-session-source.md)。
+Codex 的内部数据格式可能变化。来源不兼容时会显示不可用，不会假装空闲。v0.7.3 起支持启动环境中的绝对目录 `CODEX_HOME`，无效覆盖会明确报错；事件失败会有界退避，并在保留数据库已证实活动的同时显示同步受限。已发布的 v0.7.2 读取 `~/.codex/`。详见 [本机来源边界](local-session-source.md)。
 
 <a id="development"></a>
 ## 开发

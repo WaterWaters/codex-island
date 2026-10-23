@@ -31,7 +31,10 @@ private struct IslandSettingsView: View {
         @Bindable var preferences = model.preferences
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Image(systemName: "capsule.inset.filled").font(.system(size: 30)).foregroundStyle(.cyan)
+                if let icon = BrandAssets.colorIcon {
+                    Image(nsImage: icon).resizable().scaledToFit()
+                        .frame(width: 44, height: 44).accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Codex Island").font(.title2.weight(.semibold))
                     Text("让工作状态留在视线里").foregroundStyle(.secondary)
@@ -51,8 +54,12 @@ private struct IslandSettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("宠物") {
-                    Picker("岛上的宠物", selection: $preferences.values.selectedPetID) {
-                        ForEach(model.pets.pets) { pet in Text(verbatim: pet.name).tag(pet.id) }
+                    if model.pets.pets.isEmpty {
+                        Text("尚未找到可用宠物").foregroundStyle(.secondary)
+                    } else {
+                        Picker("岛上的宠物", selection: $preferences.values.selectedPetID) {
+                            ForEach(model.pets.pets) { pet in Text(verbatim: pet.name).tag(pet.id) }
+                        }
                     }
                     HStack {
                         Text(model.pets.statusMessage).font(.caption).foregroundStyle(.secondary)
@@ -60,7 +67,7 @@ private struct IslandSettingsView: View {
                         if model.pets.isLoading { ProgressView().controlSize(.small) }
                         Button("重新同步", action: refreshPets).disabled(model.pets.isLoading)
                     }
-                    Text("只切换岛的宠物。逐帧时长跟随本机 Codex；动作之间会随机休息。")
+                    Text("支持 Codex 内置、本地自定义和已缓存的云端宠物。只切换岛的宠物，不修改 Codex。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("灯光与动态") {

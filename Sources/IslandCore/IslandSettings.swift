@@ -1,10 +1,10 @@
 import Foundation
 
 public struct IslandSettings: Codable, Equatable, Sendable {
-    public static let fallbackPetID = "system-icon"
+    public static let defaultPetID = "codex"
     public var schemaVersion = 1
     public var isVisible = true
-    public var selectedPetID = fallbackPetID
+    public var selectedPetID = defaultPetID
     public var contentHeight = 72.0
     public var animationsEnabled = true
     public var neonPrimary = "66E6FF"
@@ -20,7 +20,9 @@ public struct IslandSettings: Codable, Equatable, Sendable {
         guard schemaVersion == 1 else { return Self() }
         var copy = self
         copy.contentHeight = contentHeight.isFinite ? min(140, max(60, contentHeight)) : 72
-        if selectedPetID.isEmpty || selectedPetID.count > 200 { copy.selectedPetID = Self.fallbackPetID }
+        if selectedPetID.isEmpty || selectedPetID.count > 200 || selectedPetID == "system-icon" {
+            copy.selectedPetID = Self.defaultPetID
+        }
         let fallback = Self()
         copy.neonPrimary = Self.validatedHex(neonPrimary) ?? fallback.neonPrimary
         copy.neonSecondary = Self.validatedHex(neonSecondary) ?? fallback.neonSecondary

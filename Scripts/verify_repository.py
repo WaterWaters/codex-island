@@ -11,6 +11,10 @@ ROOT = Path(__file__).resolve().parent.parent
 FORBIDDEN_ROOTS = {"local", "build", ".build", ".swiftpm", ".codebase-memory", "artifacts"}
 MEDIA = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".icns", ".mp4", ".mov"}
 PUBLIC_MEDIA = {"Artwork/AppIcon.png", "Artwork/AppIcon.icns", "docs/assets/banner.png"}
+PUBLIC_MEDIA.add("Sources/CodexIsland/Resources/Brand/AppIcon.png")
+PUBLIC_MEDIA.update(f"docs/assets/previews/{state}-{display}.png"
+                    for state in ("running", "needsInput", "blocked", "idle")
+                    for display in ("notched", "standard"))
 PRIVATE_SUFFIXES = {".sqlite", ".db", ".jsonl", ".p12", ".p8", ".pem", ".key", ".mobileprovision"}
 
 
@@ -30,10 +34,21 @@ def main():
     names = sorted(set(filter(None, raw.decode().split("\0"))))
     errors = []
     links = 0
+    brand_copy = ROOT / "Sources/CodexIsland/Resources/Brand/AppIcon.png"
+    if not brand_copy.is_file() or brand_copy.read_bytes() != (ROOT / "Artwork/AppIcon.png").read_bytes():
+        errors.append("The settings brand icon differs from Artwork/AppIcon.png")
+    expected_previews = {f"{state}-{display}.png"
+                         for state in ("running", "needsInput", "blocked", "idle")
+                         for display in ("notched", "standard")}
+    for readme in ("README.md", "docs/README.zh-CN.md", "docs/README.zh-TW.md", "docs/README.ja.md"):
+        text = (ROOT / readme).read_text()
+        sources = re.findall(r'<img\b[^>]*\bsrc="([^"]*previews/[^"]+)"', text)
+        if len(sources) != 8 or {Path(source).name for source in sources} != expected_previews:
+            errors.append(f"README must show all eight native state previews: {readme}")
     for name in names:
         path = ROOT / name
         parts = Path(name).parts
-        if (parts[0] in FORBIDDEN_ROOTS or "__pycache__" in parts or "CurrentPet" in parts
+        if (parts[0] in FORBIDDEN_ROOTS or name == "AGENTS.md" or "__pycache__" in parts or "CurrentPet" in parts
                 or path.name == "native-preview.png" or path.suffix in PRIVATE_SUFFIXES
                 or path.name == ".env" or path.name.startswith(".env.") and path.name != ".env.example"
                 or ".sqlite-" in path.name or ".db-" in path.name):

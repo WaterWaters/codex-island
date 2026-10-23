@@ -10,6 +10,7 @@ Choose a guide below. The README overview is available in four languages; most d
 | --- | --- | --- |
 | [Local session source](local-session-source.md) | Read scope, state mapping, compatibility, and diagnostics | 简体中文 |
 | [Pet animation](pet-animation.md) | Runtime assets, timing, fallback, and animation behavior | 简体中文 |
+| [Native state previews](assets/previews/README.md) | Eight state/display examples and reproducible native rendering | English |
 | [Security and privacy](../SECURITY.md) | Local data, permissions, and vulnerability reporting | 简体中文 |
 
 ## Building and integrating
@@ -48,11 +49,12 @@ The English [root README](../README.md) is the source of truth for the project o
 When changing the overview:
 
 1. Update the English text and all three translations together. Translate for readers rather than word for word.
-2. Preserve the same nine explicit section anchors and all shell commands. Translate headings and navigation labels.
+2. Preserve the same explicit section anchors (including `previews`) and all shell commands. Translate headings and navigation labels.
 3. Keep language links reciprocal. Root assets use `docs/assets/`; translations use `assets/`. Root-level files need `../` from this directory.
 4. Keep preview status, signing, source scope, privacy behavior, and unverified capabilities equivalent in every language.
 5. Never turn a deployment target into a tested-platform claim, or a configured CI workflow into a passing-build claim.
 6. Leave private images, session data, and `local/` outside the public file set. Banner artwork is branding, not a screenshot of the running app.
+7. Keep all eight state-preview references and their translated captions / alt text aligned. Describe them as native view renders with synthetic content; do not claim screenshots or hardware validation.
 
 Translation review should also check natural phrasing and terminology; structural checks alone do not establish translation quality. README translations cover documentation, not app UI localization.
 

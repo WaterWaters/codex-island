@@ -19,6 +19,8 @@ xcuserdata/
 /.codebase-memory/
 /artifacts/
 /local/
+# Local development instructions point to the private spec and iteration plans.
+/AGENTS.md
 # Never publish legacy personal pet assets or previews if restored locally.
 /Sources/CodexIsland/Resources/CurrentPet/
 /docs/assets/native-preview.png

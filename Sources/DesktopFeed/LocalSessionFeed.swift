@@ -3,7 +3,19 @@ import Foundation
 import IslandCore
 
 public enum FeedError: String, Error, Sendable {
-    case missingDatabase, incompatibleSchema, databaseUnavailable, queryTimedOut, oversized, invalidRollout
+    case missingDatabase, incompatibleSchema, databaseUnavailable, queryTimedOut, oversized, invalidRollout, invalidConfiguration
+}
+
+public struct FeedHealth: Equatable, Sendable {
+    public let caughtUp: Bool
+    public let degradedThreads: Int
+    public let retryingThreads: Int
+
+    public init(caughtUp: Bool, degradedThreads: Int = 0, retryingThreads: Int = 0) {
+        self.caughtUp = caughtUp
+        self.degradedThreads = degradedThreads
+        self.retryingThreads = retryingThreads
+    }
 }
 
 public struct FeedObservation: Sendable {
@@ -11,31 +23,49 @@ public struct FeedObservation: Sendable {
     public let trackedThreads: Int
     public let activeThreads: Int
     public let caughtUp: Bool
+    public let degradedThreads: Int
+    public let retryingThreads: Int
     public let supportsUnread = false
+    public var health: FeedHealth {
+        FeedHealth(caughtUp: caughtUp, degradedThreads: degradedThreads, retryingThreads: retryingThreads)
+    }
 }
 
 /// Select title and activity metadata only; messages, credentials and tool
 /// argument contents never enter the feed. Each read reopens SQLite read-only so file
 /// replacement and Codex restarts cannot leave a stale database handle alive.
 public actor LocalSessionFeed {
-    private let home: URL
+    private let configuration: Result<FeedConfiguration, FeedError>
     private var sessionID = UUID().uuidString
     private var startedAt = Date()
     private var cursors: [String: RolloutCursor] = [:]
+    private var retries: [String: RolloutRetry] = [:]
     private var focusedID: String?
 
-    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")) {
-        self.home = home
+    public init(home: URL? = nil) {
+        if let home { configuration = .success(FeedConfiguration(home: home)) }
+        else {
+            do { configuration = .success(try FeedConfiguration()) }
+            catch { configuration = .failure(.invalidConfiguration) }
+        }
     }
 
     public func reset() {
         sessionID = UUID().uuidString
         startedAt = Date()
         cursors.removeAll()
+        retries.removeAll()
         focusedID = nil
     }
 
     public func read() throws -> FeedObservation {
+        try read(at: ContinuousClock.now)
+    }
+
+    // A monotonic instant makes retries deterministic in tests without sleeping
+    // or changing the wall clock used for snapshot timestamps and turn history.
+    func read(at now: ContinuousClock.Instant) throws -> FeedObservation {
+        let home = try configuration.get().home
         let rows = try StatusDatabase.read(home: home)
         guard rows.filter({ $0.status == "inProgress" }).count <= 32 else { throw FeedError.oversized }
         var activities: [WorkState] = []
@@ -47,8 +77,21 @@ public actor LocalSessionFeed {
             case "inProgress":
                 activeIDs.insert(row.id)
                 var cursor = cursors[row.id] ?? RolloutCursor()
+                if let retry = retries[row.id], !retry.matches(row) {
+                    retries.removeValue(forKey: row.id)
+                    cursor = RolloutCursor()
+                }
                 do {
+                    if let retry = retries[row.id], now < retry.nextAttempt {
+                        caughtUp = false
+                        activities.append(.running)
+                        candidates.append((row, .running, .from(itemType: row.itemType, status: row.itemStatus)))
+                        continue
+                    }
                     try cursor.update(row: row, home: home)
+                    // A successful partial chunk cannot prove the formerly bad
+                    // stream recovered. Retain the failure count until caught up.
+                    if cursor.caughtUp { retries.removeValue(forKey: row.id) }
                     caughtUp = caughtUp && cursor.caughtUp
                     let state: WorkState = cursor.signals.needsInput && cursor.caughtUp ? .needsInput : .running
                     activities.append(state)
@@ -57,6 +100,7 @@ public actor LocalSessionFeed {
                     // The history database proves the turn is active even when
                     // the optional rollout signal stream is unavailable.
                     cursor = RolloutCursor()
+                    retries[row.id] = RolloutRetry(row: row, previous: retries[row.id], now: now)
                     caughtUp = false
                     activities.append(.running)
                     candidates.append((row, .running, .from(itemType: row.itemType, status: row.itemStatus)))
@@ -74,6 +118,7 @@ public actor LocalSessionFeed {
             }
         }
         cursors = cursors.filter { activeIDs.contains($0.key) }
+        retries = retries.filter { activeIDs.contains($0.key) }
         let priority: [WorkState: Int] = [.needsInput: 4, .blocked: 3, .ready: 2, .running: 1, .idle: 0]
         let selected = candidates.max {
             let left = priority[$0.state, default: 0], right = priority[$1.state, default: 0]
@@ -87,7 +132,29 @@ public actor LocalSessionFeed {
             snapshot: ActivitySnapshot(source: "local-session-history-v1", sessionID: sessionID,
                                        observedAt: Date(), activities: activities,
                                        sessionTitle: focus?.title, activity: selected?.activity ?? .idle),
-            trackedThreads: rows.count, activeThreads: activeIDs.count, caughtUp: caughtUp)
+            trackedThreads: rows.count, activeThreads: activeIDs.count, caughtUp: caughtUp,
+            degradedThreads: retries.count, retryingThreads: retries.values.filter { now < $0.nextAttempt }.count)
+    }
+}
+
+private struct RolloutRetry {
+    let turnID: String
+    let path: String
+    let startOffset: UInt64
+    let failureCount: Int
+    let nextAttempt: ContinuousClock.Instant
+
+    init(row: SessionRow, previous: Self?, now: ContinuousClock.Instant) {
+        turnID = row.turnID
+        path = row.path
+        startOffset = row.offset
+        failureCount = min((previous?.failureCount ?? 0) + 1, 6)
+        let delays = [1, 2, 4, 8, 16, 30]
+        nextAttempt = now.advanced(by: .seconds(delays[failureCount - 1]))
+    }
+
+    func matches(_ row: SessionRow) -> Bool {
+        turnID == row.turnID && path == row.path && startOffset == row.offset
     }
 }
 

@@ -19,12 +19,26 @@
 </p>
 
 <p align="center">
-  <a href="#features">特徴</a> · <a href="#getting-started">はじめる</a> · <a href="#privacy">プライバシー</a> · <a href="#documentation">ドキュメント</a>
+  <a href="#previews">プレビュー</a> · <a href="#features">特徴</a> · <a href="#getting-started">はじめる</a> · <a href="#privacy">プライバシー</a> · <a href="#documentation">ドキュメント</a>
 </p>
 
 Codex Island は、現在のローカルセッションのタイトルと作業状況を画面上部に表示します。Codex が作業中か、あなたの回答を待っているかを確認し、アイランドをクリックして Codex に戻れます。
 
 **OpenAI とは提携していない独立プロジェクトです。** 現在は、ローカルの Codex との互換性を前提とした 0.x プレビュー版です。
+
+<a id="previews"></a>
+## アイランドの表示を見る
+
+日常の 4 つの状態を、ノッチ付き MacBook と通常の外部ディスプレイで比較できます。上段にセッションのタイトル、下段に現在の作業を表示し、輪郭で状態を区別します。
+
+画像は合成データを使ったネイティブ SwiftUI ビューのレンダリングで、現在の簡体字中国語 UI と素材がない場合の代替猫マークを表示しています。画面背景は説明用の構成であり、実際のデスクトップのスクリーンショットや実機検証の証拠ではありません。[プレビューの生成方法](assets/previews/README.md)。
+
+| MacBook · ノッチ付き | 外部ディスプレイ · 通常画面 |
+| :---: | :---: |
+| <img src="assets/previews/running-notched.png" alt="ノッチ付き MacBook の作業中アイランド" width="440"><br><strong>作業中</strong><br>コマンドやツールの動作をひと目で確認。 | <img src="assets/previews/running-standard.png" alt="通常の外部ディスプレイの作業中アイランド" width="440"><br><strong>作業中</strong><br>コマンドやツールの動作をひと目で確認。 |
+| <img src="assets/previews/needsInput-notched.png" alt="ノッチ付き MacBook の回答待ち表示" width="440"><br><strong>回答待ち</strong><br>あなたの回答が必要なときに、わかりやすく表示。 | <img src="assets/previews/needsInput-standard.png" alt="通常の外部ディスプレイの回答待ち表示" width="440"><br><strong>回答待ち</strong><br>あなたの回答が必要なときに、わかりやすく表示。 |
+| <img src="assets/previews/blocked-notched.png" alt="ノッチ付き MacBook のエラー状態" width="440"><br><strong>作業が停止</strong><br>ターンの失敗を、独立したエラー状態で表示。 | <img src="assets/previews/blocked-standard.png" alt="通常の外部ディスプレイのエラー状態" width="440"><br><strong>作業が停止</strong><br>ターンの失敗を、独立したエラー状態で表示。 |
+| <img src="assets/previews/idle-notched.png" alt="ノッチ付き MacBook のアイドル状態" width="440"><br><strong>アイドル</strong><br>Codex の起動中は、静かに画面に残ります。 | <img src="assets/previews/idle-standard.png" alt="通常の外部ディスプレイのアイドル状態" width="440"><br><strong>アイドル</strong><br>Codex の起動中は、静かに画面に残ります。 |
 
 <a id="features"></a>
 ## ウインドウの切り替えを、少し減らす
@@ -33,7 +47,7 @@ Codex Island は、現在のローカルセッションのタイトルと作業�
 - **回答が必要なときに通知。** 認識できた未回答の質問は輪郭の点滅で知らせ、エラーは別の表示で区別します。
 - **macOS になじむ設計。** SwiftUI と AppKit を使用し、ノッチを避けた配置、メニューバー操作、「視差効果を減らす」に対応します。
 - **好みに合わせて調整。** 色、高さ、表示、アニメーションを変更できます。中クリックで 30 秒間クリックを透過します。
-- **好みのペットも選択可能。** システムアイコン、またはインストール済み Codex の内蔵ペットを使用できます。個人のペット画像は同梱しません。
+- **あなたの Codex ペット。** 内蔵、ローカルのカスタム、ローカルにキャッシュ済みのクラウドペットを選べます。個人画像は同梱しません。素材がない場合は Codex でペットを表示してから再同期してください。[素材の読み取り元と制限](pet-animation.md)。
 - **データは基本的にローカルで処理。** ローカル状態への読み取り専用アクセスを使い、アプリにテレメトリーやネットワークサービスはありません。
 
 <a id="getting-started"></a>
@@ -62,7 +76,7 @@ open build/CodexIsland.app
 | --- | --- |
 | アイランドを左クリック | Codex を開く |
 | アイランドを中クリック | 半透明になり、30 秒間クリックを透過する |
-| メニューバーのメニューを開く | 表示・非表示、ペットの選択、外観の変更、再同期 |
+| メニューバーのメニューを開く | 表示・非表示、ペットの選択、外観の変更、状態とペットを個別に再同期 |
 | 「視差効果を減らす」を有効化、またはアニメーションを一時停止 | 動きの少ない表示にする |
 
 作業中は輪郭が動き、認識できた質問の回答待ちには入力待ちの色、エラーには赤色の点滅を使います。アイドル時は控えめな表示になります。ターンの完了を**未読結果がある状態とは扱いません**。
@@ -84,7 +98,7 @@ open build/CodexIsland.app
 | 完全な未読状態、リモート・クラウドチャット、Codex ペットとの完全な状態一致 | 未対応 |
 | すべてのフルスクリーン・Spaces の組み合わせ、ディスプレイ変更、長時間の性能 | 検証未完了 |
 
-Codex の内部データ形式は変わる可能性があります。互換性がない場合は利用不可と表示し、アイドル状態と見なすことはありません。現在の実行ファイルは `~/.codex/` を使い、`CODEX_HOME` による上書きには対応していません。詳細は [ローカルデータソースの範囲](local-session-source.md) を参照してください。
+Codex の内部データ形式は変わる可能性があります。互換性がない場合は利用不可と表示し、アイドル状態と見なすことはありません。v0.7.3 以降は、起動時の環境変数 `CODEX_HOME` に指定した絶対パスを使用し、不正な指定は明示的にエラーとします。イベントの読み取りに失敗すると上限付きの間隔で再試行し、データベースで確認できた作業状況を保ちながら同期の制限を表示します。公開済みの v0.7.2 は `~/.codex/` を使用します。詳細は [ローカルデータソースの範囲](local-session-source.md) を参照してください。
 
 <a id="development"></a>
 ## 開発

@@ -5,7 +5,7 @@ import OSLog
 import Darwin
 
 enum SourceReading: Sendable {
-    case snapshot(ActivitySnapshot)
+    case snapshot(ActivitySnapshot, health: FeedHealth? = nil)
     case unsupported
     case unavailable
 }
@@ -24,12 +24,19 @@ actor DesktopStatusSource: StatusSource {
     private let feed = LocalSessionFeed()
     private let logger = Logger(subsystem: "dev.water.codex-island", category: "StatusSource")
     private var lastFailure: String?
+    private var eventsDegraded = false
     func read() async -> SourceReading {
         do {
-            let snapshot = try await feed.read().snapshot
+            let observation = try await feed.read()
             if lastFailure != nil { logger.notice("Local status source recovered") }
             lastFailure = nil
-            return .snapshot(snapshot)
+            let degraded = observation.degradedThreads > 0
+            if degraded != eventsDegraded {
+                if degraded { logger.warning("Local event stream degraded; bounded retries active") }
+                else { logger.notice("Local event stream recovered") }
+                eventsDegraded = degraded
+            }
+            return .snapshot(observation.snapshot, health: observation.health)
         } catch {
             // Fixed error identifiers only: never log titles, paths or payloads.
             let reason = (error as? FeedError)?.rawValue ?? "unknownReadFailure"
@@ -41,7 +48,10 @@ actor DesktopStatusSource: StatusSource {
             }
         }
     }
-    func reset() async { await feed.reset() }
+    func reset() async {
+        await feed.reset()
+        eventsDegraded = false
+    }
 }
 
 /// Explicit integration input. Never selected automatically as a live source.

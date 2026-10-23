@@ -1,5 +1,5 @@
 import CSQLite
-import DesktopFeed
+@testable import DesktopFeed
 import Foundation
 import IslandCore
 import Testing
@@ -160,6 +160,190 @@ import Testing
     #expect(observation.snapshot.activities == [.running])
     #expect(!observation.caughtUp)
     #expect(try Data(contentsOf: state) == before)
+}
+
+@Test func malformedEventsBackOffAndRecoverWithoutRestarting() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    try fixture.append(Data("malformed".utf8), id: "a")
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    let failed = try await feed.read(at: now)
+    #expect(!failed.caughtUp)
+    #expect(failed.degradedThreads == 1 && failed.retryingThreads == 1)
+    #expect(failed.snapshot.activities == [.running])
+
+    // Repair the same source. A read before the deadline must not parse it.
+    try Data().write(to: fixture.rollout("a"), options: .atomic)
+    try fixture.append(event("function_call", call: "q", name: "request_user_input"), id: "a")
+    let deferred = try await feed.read(at: now.advanced(by: .milliseconds(999)))
+    #expect(deferred.snapshot.activities == [.running])
+    #expect(deferred.retryingThreads == 1)
+    let recovered = try await feed.read(at: now.advanced(by: .seconds(1)))
+    #expect(recovered.caughtUp)
+    #expect(recovered.degradedThreads == 0 && recovered.retryingThreads == 0)
+    #expect(recovered.snapshot.activities == [.needsInput])
+}
+
+@Test func eventFailureClearsPreviouslyObservedQuestionUntilFullRecovery() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    try fixture.append(event("function_call", call: "q", name: "request_user_input"), id: "a")
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    #expect(try await feed.read(at: now).snapshot.activities == [.needsInput])
+    try fixture.append(Data("broken".utf8), id: "a")
+    try fixture.append(event("function_call_output", call: "q"), id: "a")
+    let failed = try await feed.read(at: now)
+    #expect(failed.snapshot.activities == [.running])
+    #expect(!failed.caughtUp && failed.degradedThreads == 1)
+    // Replaying the valid question prefix before the same bad record must not
+    // resurrect a wait whose answer may be in the unread suffix.
+    let retried = try await feed.read(at: now.advanced(by: .seconds(1)))
+    #expect(retried.snapshot.activities == [.running])
+    #expect(!retried.caughtUp && retried.degradedThreads == 1)
+    try Data().write(to: fixture.rollout("a"))
+    try fixture.append(event("function_call", call: "q", name: "request_user_input"), id: "a")
+    try fixture.append(event("function_call_output", call: "q"), id: "a")
+    let recovered = try await feed.read(at: now.advanced(by: .seconds(3)))
+    #expect(recovered.caughtUp && recovered.degradedThreads == 0)
+    #expect(recovered.snapshot.activities == [.running])
+}
+
+@Test func missingEventFileCanRecoverAfterBoundedRetry() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    try FileManager.default.removeItem(at: fixture.rollout("a"))
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    let missing = try await feed.read(at: now)
+    #expect(missing.snapshot.activities == [.running])
+    #expect(missing.degradedThreads == 1 && missing.retryingThreads == 1)
+    try Data().write(to: fixture.rollout("a"))
+    let recovered = try await feed.read(at: now.advanced(by: .seconds(1)))
+    #expect(recovered.caughtUp && recovered.degradedThreads == 0)
+}
+
+@Test func repeatedFailuresIncreaseBackoffWithThirtySecondCap() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    let broken = Data("broken\n".utf8)
+    try broken.write(to: fixture.rollout("a"))
+    let feed = LocalSessionFeed(home: fixture.root)
+    var now = ContinuousClock.now
+    for seconds in [1, 2, 4, 8, 16, 30, 30] {
+        let failed = try await feed.read(at: now)
+        #expect(failed.retryingThreads == 1)
+        try Data().write(to: fixture.rollout("a"))
+        try fixture.append(event("function_call", call: "q", name: "request_user_input"), id: "a")
+        let before = try await feed.read(at: now.advanced(by: .milliseconds(seconds * 1000 - 1)))
+        #expect(before.snapshot.activities == [.running])
+        #expect(before.retryingThreads == 1)
+        try broken.write(to: fixture.rollout("a"))
+        now = now.advanced(by: .seconds(seconds))
+    }
+    try Data().write(to: fixture.rollout("a"))
+    let recovered = try await feed.read(at: now)
+    #expect(recovered.caughtUp && recovered.degradedThreads == 0)
+}
+
+@Test func brokenSessionDoesNotBlockHealthyQuestionsOrANewTurn() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "bad", status: "inProgress")
+    try fixture.add(id: "good", status: "inProgress", title: "Healthy question")
+    try fixture.append(Data("broken".utf8), id: "bad")
+    try fixture.append(event("function_call", call: "good-q", name: "request_user_input"), id: "good")
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    let mixed = try await feed.read(at: now)
+    #expect(mixed.activeThreads == 2 && mixed.degradedThreads == 1)
+    #expect(mixed.snapshot.activities.contains(.needsInput))
+    #expect(mixed.snapshot.sessionTitle == "Healthy question")
+    let size = try Data(contentsOf: fixture.rollout("bad")).count
+    try fixture.execute("history", "UPDATE thread_turns SET turn_id='new',rollout_byte_offset=\(size) WHERE thread_id='bad'")
+    try fixture.append(event("function_call", call: "new-q", name: "request_user_input", turn: "new"), id: "bad")
+    let nextTurn = try await feed.read(at: now)
+    #expect(nextTurn.caughtUp && nextTurn.degradedThreads == 0)
+    #expect(nextTurn.snapshot.activities.filter { $0 == .needsInput }.count == 2)
+}
+
+@Test func explicitResetClearsEventBackoffImmediately() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    try fixture.append(Data("broken".utf8), id: "a")
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    let failed = try await feed.read(at: now)
+    #expect(failed.degradedThreads == 1)
+    try Data().write(to: fixture.rollout("a"))
+    try fixture.append(event("function_call", call: "q", name: "request_user_input"), id: "a")
+    await feed.reset()
+    let reset = try await feed.read(at: now)
+    #expect(reset.snapshot.sessionID != failed.snapshot.sessionID)
+    #expect(reset.caughtUp && reset.degradedThreads == 0)
+    #expect(reset.snapshot.activities == [.needsInput])
+}
+
+@Test func completedThreadsReleaseTheirRetryState() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    try fixture.append(Data("broken".utf8), id: "a")
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    #expect(try await feed.read(at: now).degradedThreads == 1)
+    try fixture.execute("history", "UPDATE thread_turns SET status='completed'")
+    let completed = try await feed.read(at: now)
+    #expect(completed.caughtUp && completed.degradedThreads == 0)
+    #expect(completed.snapshot.activities.isEmpty)
+    #expect(!completed.supportsUnread)
+    try Data().write(to: fixture.rollout("a"))
+    try fixture.execute("history", "UPDATE thread_turns SET status='inProgress'")
+    #expect(try await feed.read(at: now).caughtUp)
+}
+
+@Test func partialReplaysDoNotResetAnExistingFailureBudget() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    let large = try JSONSerialization.data(withJSONObject: ["type": "unused", "padding": String(repeating: "x", count: 180_000)])
+    try fixture.append(large, id: "a")
+    try fixture.append(large, id: "a")
+    try fixture.append(Data("broken".utf8), id: "a")
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    let partial = try await feed.read(at: now)
+    #expect(!partial.caughtUp && partial.degradedThreads == 0)
+    #expect(try await feed.read(at: now).retryingThreads == 1)
+    let replay = try await feed.read(at: now.advanced(by: .seconds(1)))
+    #expect(!replay.caughtUp && replay.degradedThreads == 1)
+    #expect(replay.retryingThreads == 0)
+    #expect(try await feed.read(at: now.advanced(by: .seconds(1))).retryingThreads == 1)
+    try Data().write(to: fixture.rollout("a"))
+    #expect(try await feed.read(at: now.advanced(by: .milliseconds(2999))).retryingThreads == 1)
+    let recovered = try await feed.read(at: now.advanced(by: .seconds(3)))
+    #expect(recovered.caughtUp && recovered.degradedThreads == 0)
+}
+
+@Test func changedRolloutPathClearsBackoffWithoutReadingTheOldFile() async throws {
+    let fixture = try Fixture()
+    defer { fixture.remove() }
+    try fixture.add(id: "a", status: "inProgress")
+    try fixture.append(Data("broken".utf8), id: "a")
+    let feed = LocalSessionFeed(home: fixture.root)
+    let now = ContinuousClock.now
+    #expect(try await feed.read(at: now).retryingThreads == 1)
+    let replacement = fixture.rollout("replacement")
+    try Data().write(to: replacement)
+    try fixture.execute("state", "UPDATE threads SET rollout_path='\(replacement.path.replacingOccurrences(of: "'", with: "''"))'")
+    let recovered = try await feed.read(at: now)
+    #expect(recovered.caughtUp && recovered.degradedThreads == 0)
 }
 
 @Test func titleAndDetailedActivityFollowLatestItemThenRemainIdle() async throws {

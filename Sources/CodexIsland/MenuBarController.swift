@@ -8,6 +8,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let openCodex: @MainActor () -> Void
     private let showSettings: @MainActor () -> Void
     private let refreshPets: @MainActor () -> Void
+    private let refreshStatus: @MainActor () -> Void
     private let toggleClickThrough: @MainActor () -> Void
     private let remainingSeconds: @MainActor () -> Int
     private var countdownItem: NSMenuItem?
@@ -15,13 +16,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     init(model: IslandModel, openCodex: @escaping @MainActor () -> Void,
          showSettings: @escaping @MainActor () -> Void, refreshPets: @escaping @MainActor () -> Void,
+         refreshStatus: @escaping @MainActor () -> Void,
          toggleClickThrough: @escaping @MainActor () -> Void, remainingSeconds: @escaping @MainActor () -> Int) {
         self.model = model; self.openCodex = openCodex; self.showSettings = showSettings
         self.refreshPets = refreshPets; self.toggleClickThrough = toggleClickThrough; self.remainingSeconds = remainingSeconds
+        self.refreshStatus = refreshStatus
         super.init()
-        let image = NSImage(systemSymbolName: "capsule.inset.filled", accessibilityDescription: "Codex Island")
-        image?.isTemplate = true
+        let image = BrandAssets.menuBarIcon
         item.button?.image = image
+        item.button?.imageScaling = .scaleNone
         if image == nil { item.button?.title = "Island" }
         item.button?.setAccessibilityLabel("Codex Island 菜单")
         let menu = NSMenu(); menu.delegate = self; item.menu = menu
@@ -55,13 +58,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         menu.removeAllItems()
-        let header = add("Codex Island · \(model.detail ?? "同步中")", to: menu)
+        let header = add("Codex Island · \(model.displayDetail)", to: menu)
         header.isEnabled = false
         add("打开 Codex", to: menu, action: #selector(openApplication))
         menu.addItem(.separator())
         let visibility = add("显示岛", to: menu, action: #selector(toggleVisibility))
         visibility.state = model.preferences.values.isVisible ? .on : .off
         let pets = NSMenu(title: "宠物")
+        if model.pets.pets.isEmpty { add("暂无可用宠物", to: pets).isEnabled = false }
         for pet in model.pets.pets {
             let entry = add(pet.name, to: pets, action: #selector(selectPet(_:)))
             entry.representedObject = pet.id
@@ -74,6 +78,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateCountdown()
         menu.addItem(.separator())
         add("外观与设置…", to: menu, action: #selector(settings), key: ",")
+        add("重新同步状态", to: menu, action: #selector(syncStatus))
         add("重新同步宠物与时长", to: menu, action: #selector(syncPets)).isEnabled = !model.pets.isLoading
         menu.addItem(.separator())
         add("退出 Codex Island", to: menu, action: #selector(quit), key: "q")
@@ -97,6 +102,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func openApplication() { openCodex() }
     @objc private func settings() { showSettings() }
     @objc private func syncPets() { refreshPets() }
+    @objc private func syncStatus() { refreshStatus() }
     @objc private func changeClickThrough() { toggleClickThrough() }
     @objc private func quit() { NSApp.terminate(nil) }
     func close() { countdownTimer?.invalidate(); NSStatusBar.system.removeStatusItem(item) }

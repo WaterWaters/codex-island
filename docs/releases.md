@@ -10,7 +10,7 @@ Hosted-runner unit tests do not replace real desktop validation of approvals, Sp
 
 ## Preview release workflow
 
-Pushing a version tag such as v0.7.2 starts the preview workflow. Maintainers can also dispatch it manually with an existing tag. The workflow:
+Pushing a version tag such as v0.7.3 starts the preview workflow. Maintainers can also dispatch it manually with an existing tag. The workflow:
 
 1. Checks that the tag is a version, resolves to the checked-out commit, and is on main's history.
 2. Checks the public source set and runs Release tests.
@@ -28,14 +28,14 @@ Update MARKETING_VERSION and BUILD_NUMBER in Scripts/package_app.sh, plus the ch
 ```bash
 python3 Scripts/verify_repository.py
 ./Scripts/test.sh -c release
-./Scripts/package_release.sh v0.7.2
+./Scripts/package_release.sh v0.7.3
 ```
 
 After committing and pushing to main, wait for all CI jobs on that exact commit to pass before creating the version tag:
 
 ```bash
-git tag -a v0.7.2 -m "Codex Island v0.7.2 preview"
-git push origin v0.7.2
+git tag -a v0.7.3 -m "Codex Island v0.7.3 preview"
+git push origin v0.7.3
 ```
 
 Do not reuse a published tag. A failed workflow may leave a draft; inspect it and the failure logs before manually recovering. Published assets are not overwritten by rerunning the workflow.
@@ -58,6 +58,6 @@ Current builds are **ad-hoc signed and not notarized**. No Developer ID certific
 
 ## Public source gate
 
-Scripts/verify_repository.py rejects generated/private directories, session databases and JSONL, key material paths, unexpected media, and recognizable embedded GitHub tokens/private-key blocks. The media allowlist contains only the three reviewed brand assets. It also checks local Markdown references. This targeted gate is not a complete secret scanner or a replacement for code review.
+Scripts/verify_repository.py rejects generated/private directories, session databases and JSONL, key material paths, unexpected media, and recognizable embedded GitHub tokens/private-key blocks. The media allowlist contains the reviewed brand assets, the settings icon copy, and eight synthetic native state previews. It also checks local Markdown references. This targeted gate is not a complete secret scanner or a replacement for code review.
 
 Personal pet files stay in the ignored local directory and are absent from Git history and release bundles. The app's separate bundle allowlist prevents an accidental private resource copy from reaching a release archive.

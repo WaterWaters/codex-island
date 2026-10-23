@@ -24,6 +24,8 @@ expected = {
     'Contents/MacOS/CodexIsland', 'Contents/MacOS/CodexIslandProbe',
     'Contents/Info.plist', 'Contents/Resources/AppIcon.icns',
     'Contents/_CodeSignature/CodeResources',
+    'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Info.plist',
+    'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Resources/Brand/AppIcon.png',
 }
 actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
 if actual != expected or any(p.is_symlink() for p in root.rglob('*')):
@@ -57,7 +59,15 @@ import sys
 tag, version, build, commit = sys.argv[1:]
 Path('build/RELEASE_NOTES.md').write_text(f'''## Codex Island {tag} — Preview
 
-A native macOS status island for local Codex sessions, with activity, recognized question waits, appearance settings, and optional locally loaded built-in pets.
+A native macOS status island for local Codex sessions, with activity, recognized question waits, appearance settings, and optional locally loaded built-in and custom pets.
+
+### Changes
+
+- Discover local custom pets and cloud pets already cached by Codex, load their names and animation, and preserve the selection across restarts. No network requests or personal images are bundled.
+- Preserve loaded pets when their source is temporarily unavailable; migrate the former system-icon selection to the built-in Codex pet.
+- Retry failed session events with bounded backoff, expose limited synchronization, and add manual status resynchronization.
+- Share explicit CODEX_HOME validation across the app, probe, and diagnostics.
+- Refine the menu-bar and settings brand icons and add eight synthetic native state previews to all four README languages.
 
 ### Downloads
 
@@ -73,6 +83,7 @@ Open the DMG and drag CodexIsland.app to Applications, or unzip the ZIP. Launch 
 
 - Ad-hoc signed, **not Developer ID signed or notarized**. macOS may block an unidentified developer; build from source if you prefer.
 - Universal binary architecture checks do not replace real-device validation on Intel or the minimum macOS version.
+- A single event record over 1 MiB still causes limited synchronization. Backoff and manual resynchronization do not bypass it; database-confirmed activity remains available, but question state may be incomplete.
 - Private Codex database/asset formats can change. Complete unread state, remote/cloud chats and full pet-state parity are unsupported.
 - Approval-button recognition is opt-in and experimental. Fullscreen/Spaces combinations and 30-minute whole-app performance remain under validation.
 - No personal pet images, private session data, or signing credentials are included.

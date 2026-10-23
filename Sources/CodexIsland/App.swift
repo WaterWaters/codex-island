@@ -1,4 +1,5 @@
 import AppKit
+import DesktopFeed
 import Foundation
 import IslandCore
 import OSLog
@@ -9,6 +10,7 @@ struct Options {
     var diagnose = false
     var help = false
     var renderPath: URL?
+    var galleryPath: URL?
 
     init(arguments: [String]) throws {
         if arguments.isEmpty, let value = Bundle.main.object(forInfoDictionaryKey: "CodexIslandPreviewState") as? String {
@@ -30,6 +32,10 @@ struct Options {
                 index += 1
                 guard index < arguments.count, arguments[index].hasPrefix("/") else { throw OptionError.invalid }
                 renderPath = URL(fileURLWithPath: arguments[index])
+            case "--render-gallery":
+                index += 1
+                guard index < arguments.count, arguments[index].hasPrefix("/") else { throw OptionError.invalid }
+                galleryPath = URL(fileURLWithPath: arguments[index], isDirectory: true)
             case "--help", "-h": help = true
             default:
                 if !arguments[index].hasPrefix("-psn_") { throw OptionError.invalid }
@@ -37,6 +43,7 @@ struct Options {
             index += 1
         }
         if demo != nil && statusFile != nil { throw OptionError.invalid }
+        if galleryPath != nil && renderPath != nil { throw OptionError.invalid }
     }
     enum OptionError: Error { case invalid }
 }
@@ -56,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var gate = SnapshotGate()
     private var suspended = false
     private var refreshInFlight = false
+    private var sourceGeneration = 0
     private var source: any StatusSource
     private var observers: [NSObjectProtocol] = []
 
@@ -85,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.preferences.onChange = { [weak self] in self?.preferencesDidChange() }
         menuBar = MenuBarController(model: model, openCodex: { [weak self] in self?.openCodex() },
             showSettings: { [weak self] in self?.showSettings() }, refreshPets: { [weak self] in self?.synchronizePets(force: true) },
+            refreshStatus: { [weak self] in self?.resynchronizeStatus() },
             toggleClickThrough: { [weak self] in
                 guard let self else { return }
                 if panel?.clickThroughSecondsRemaining ?? 0 > 0 { panel?.endClickThrough() }
@@ -113,17 +122,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !suspended, !refreshInFlight else { return }
         refreshInFlight = true
         defer { refreshInFlight = false }
+        let generation = sourceGeneration
         if options.demo == nil && options.statusFile == nil && launcher.runningApplication == nil {
             await source.reset()
+            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
             model.connection = .appNotRunning
             model.sessionTitle = nil
             model.activity = nil
             model.approvalUIIsPending = false
         } else {
             let reading = await source.read()
-            guard !suspended, !Task.isCancelled else { return }
+            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
             switch reading {
-            case .snapshot(let snapshot):
+            case .snapshot(let snapshot, let health):
                 do {
                     let summary = try gate.accept(snapshot, now: Date())
                     if model.summary != summary { model.summary = summary }
@@ -131,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if model.sessionTitle != title { model.sessionTitle = title }
                     if model.activity != snapshot.activity { model.activity = snapshot.activity }
                     model.connection = .connected
+                    model.localFeedHealth = health
                 } catch {
                     if model.connection != .unavailable {
                         let logger = Logger(subsystem: "dev.water.codex-island", category: "SnapshotGate")
@@ -143,6 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         if model.connection != .connected {
+            model.localFeedHealth = nil
             model.summary = .reduce([])
             model.activity = nil
         }
@@ -150,6 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
            model.preferences.values.approvalRecognitionEnabled == true,
            let running = launcher.runningApplication {
             let reading = await approvalObserver.read(processID: running.processIdentifier)
+            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
             // Settings can change while the AX actor is reading. A late result
             // must not re-enable an observer the user just disabled.
             guard model.preferences.values.approvalRecognitionEnabled == true,
@@ -174,6 +188,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         render()
+    }
+
+    private func resynchronizeStatus() {
+        sourceGeneration &+= 1
+        let generation = sourceGeneration
+        pollTask?.cancel()
+        model.localFeedHealth = nil
+        model.approvalUIIsPending = false
+        model.connection = .connecting
+        render()
+        Task { [weak self] in
+            guard let self else { return }
+            await source.reset()
+            guard !suspended, generation == sourceGeneration else { return }
+            gate = SnapshotGate()
+            startPolling()
+        }
     }
 
     private func render() {
@@ -247,6 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.suspended = true
+                    self?.sourceGeneration &+= 1
                     self?.model.animationsPaused = true
                     self?.pollTask?.cancel()
                     self?.panel?.hide()
@@ -270,6 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func diagnose() {
         let url = launcher.applicationURL
         let bundle = url.flatMap(Bundle.init(url:))
+        let configuration = try? FeedConfiguration()
         let output: [String: Any] = [
             "applicationFound": url != nil,
             "applicationRunning": launcher.runningApplication != nil,
@@ -277,7 +310,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "source": options.demo != nil ? "demo" : (options.statusFile != nil ? "explicit-file" : "local-session-history-v1"),
             "supportsUnread": false,
             "petParityVerified": false,
-            "screenCount": NSScreen.screens.count
+            "screenCount": NSScreen.screens.count,
+            "localSourceConfiguration": configuration == nil ? "invalidConfiguration" : "configured",
+            "usesHomeOverride": configuration?.usesHomeOverride ?? (ProcessInfo.processInfo.environment["CODEX_HOME"] != nil)
         ]
         if let data = try? JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys]) {
             print(String(decoding: data, as: UTF8.self))
@@ -285,6 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        sourceGeneration &+= 1
         pollTask?.cancel()
         petTask?.cancel()
         model.preferences.onChange = nil
@@ -311,11 +347,17 @@ enum CodexIslandMain {
               --status-file /absolute/snapshot.json       显式外部状态输入（非 Codex API）
               --diagnose                                 输出只读诊断并退出
               --render-previews /absolute/preview.png     渲染原生视图示意并退出
+              --render-gallery /absolute/directory        渲染 4 状态 × 2 屏幕的公开示意图
             默认使用只读本机会话状态；当前不支持完成未读同步，未验证与宠物完全一致。
             """)
             return
         }
         let app = NSApplication.shared
+        if let url = options.galleryPath {
+            do { try PreviewRenderer.renderGallery(to: url); print("Rendered 8 native previews") }
+            catch { print("原生图库渲染失败"); exit(1) }
+            return
+        }
         if let url = options.renderPath {
             do { try PreviewRenderer.render(to: url); print("Rendered \(url.path)") }
             catch { print("原生视图渲染失败：\(error.localizedDescription)"); exit(1) }

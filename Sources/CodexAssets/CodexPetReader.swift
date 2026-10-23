@@ -1,14 +1,26 @@
 import Foundation
 import IslandCore
 
+public enum PetAssetSource: Equatable, Sendable {
+    case bundled(member: String)
+    case localFile(image: URL, root: URL, version: Int)
+    case codexCache(files: [URL], identity: String, version: Int)
+}
+
 public struct PetDescriptor: Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
-    public let assetMember: String?
-    public init(id: String, name: String, assetMember: String? = nil) {
-        self.id = id; self.name = name; self.assetMember = assetMember
+    public let source: PetAssetSource?
+    public var assetMember: String? {
+        if case .bundled(let member) = source { return member }
+        return nil
     }
-    public static let systemIcon = Self(id: IslandSettings.fallbackPetID, name: "系统图标")
+    public init(id: String, name: String, assetMember: String? = nil) {
+        self.id = id; self.name = name; source = assetMember.map { .bundled(member: $0) }
+    }
+    public init(id: String, name: String, source: PetAssetSource) {
+        self.id = id; self.name = name; self.source = source
+    }
 }
 
 public struct CodexPetCatalog: Sendable {
@@ -96,7 +108,12 @@ public actor CodexPetReader {
     }
 
     public func sprite(for pet: PetDescriptor) throws -> Data {
+        if pet.assetMember == nil { return try CustomPetStore.sprite(for: pet) }
         guard let archive, let member = pet.assetMember else { throw AssetError.missingMember }
         return try archive.read(member, maximumSize: 16_777_216)
+    }
+
+    public func customCatalog(home: URL, cacheDirectory: URL) -> CustomPetCatalog {
+        CustomPetStore.catalog(home: home, cacheDirectory: cacheDirectory)
     }
 }

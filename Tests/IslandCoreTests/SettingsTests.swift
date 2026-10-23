@@ -64,6 +64,18 @@ import Testing
     #expect(settings.approvalRecognitionEnabled != true)
 }
 
+@Test func removedSystemPetMigratesWithoutLosingAppearanceOrCustomSelection() {
+    var settings = IslandSettings()
+    settings.selectedPetID = "system-icon"
+    settings.contentHeight = 98
+    settings.neonPrimary = "123ABC"
+    let migrated = settings.sanitized()
+    #expect(migrated.selectedPetID == "codex")
+    #expect(migrated.contentHeight == 98 && migrated.neonPrimary == "123ABC")
+    settings.selectedPetID = "pet_synthetic"
+    #expect(settings.sanitized().selectedPetID == "pet_synthetic")
+}
+
 @Test func approvalRequiresEnabledPairedDecisionControls() {
     #expect(ApprovalControls.isPending([.init(label: "Allow once"), .init(label: "Deny")]))
     #expect(ApprovalControls.isPending([.init(label: "允许一次"), .init(label: "拒绝")]))

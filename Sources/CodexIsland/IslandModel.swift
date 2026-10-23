@@ -1,4 +1,5 @@
 import AppKit
+import DesktopFeed
 import IslandCore
 import Observation
 
@@ -14,6 +15,7 @@ final class IslandModel {
     var approvalUIIsPending = false
     var approvalAccessMessage = "审批窗口识别未开启"
     var connection: ConnectionState = .connecting
+    var localFeedHealth: FeedHealth?
     var summary = ActivitySummary.reduce([])
     var sessionTitle: String?
     var activity: SessionActivity?
@@ -65,7 +67,11 @@ final class IslandModel {
     var petMotion: PetMotion { PetMotion(state: effectState) }
     var displayDetail: String {
         let prefix = isDemo ? "演示 · " : isExternalFeed ? "外部 · " : ""
-        return prefix + (detail ?? "同步中")
+        let suffix: String
+        if isLocalFeed, connection == .connected, !approvalUIIsPending, let health = localFeedHealth {
+            suffix = health.degradedThreads > 0 ? " · 同步受限" : health.caughtUp ? "" : " · 同步中"
+        } else { suffix = "" }
+        return prefix + (detail ?? "同步中") + suffix
     }
     var isExpanded: Bool { true }
     var shouldShow: Bool {
@@ -76,7 +82,7 @@ final class IslandModel {
     }
 
     var accessibilityDescription: String {
-        [title, detail, sourceBadge, "宠物\(pets.displayName)", isClickThrough ? "临时穿透中" : nil,
+        [title, displayDetail, sourceBadge, "宠物\(pets.displayName)", isClickThrough ? "临时穿透中" : nil,
          connection == .connected && !approvalUIIsPending ? summary.detail : nil, "打开 Codex"].compactMap { $0 }.joined(separator: "，")
     }
 }

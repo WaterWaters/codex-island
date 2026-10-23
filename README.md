@@ -19,12 +19,26 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> · <a href="#getting-started">Get started</a> · <a href="#privacy">Privacy</a> · <a href="#documentation">Docs</a>
+  <a href="#previews">Preview</a> · <a href="#features">Features</a> · <a href="#getting-started">Get started</a> · <a href="#privacy">Privacy</a> · <a href="#documentation">Docs</a>
 </p>
 
 Codex Island keeps the current local session title and activity near the top of your screen. See when Codex is working or waiting for your answer, then click the island to return to Codex.
 
 **Independent project. Not affiliated with OpenAI.** This is a 0.x preview built around local Codex compatibility.
+
+<a id="previews"></a>
+## See the island in action
+
+Four everyday states, on a MacBook with a notch and a standard external display. The island keeps the session title above the current activity and uses a distinct outline for each state.
+
+These are native SwiftUI view renders with synthetic content, showing the current Simplified Chinese UI and the asset-free fallback cat symbol. They are illustrative screen compositions, not desktop screenshots or hardware validation. [How the previews are made](docs/assets/previews/README.md).
+
+| MacBook · Notched display | External · Standard display |
+| :---: | :---: |
+| <img src="docs/assets/previews/running-notched.png" alt="Working island on a notched MacBook display" width="440"><br><strong>Working</strong><br>Follow commands and tool activity at a glance. | <img src="docs/assets/previews/running-standard.png" alt="Working island on a standard external display" width="440"><br><strong>Working</strong><br>Follow commands and tool activity at a glance. |
+| <img src="docs/assets/previews/needsInput-notched.png" alt="Input reminder on a notched MacBook display" width="440"><br><strong>Needs your input</strong><br>A clear signal when an answer is needed. | <img src="docs/assets/previews/needsInput-standard.png" alt="Input reminder on a standard external display" width="440"><br><strong>Needs your input</strong><br>A clear signal when an answer is needed.  |
+| <img src="docs/assets/previews/blocked-notched.png" alt="Blocked work on a notched MacBook display" width="440"><br><strong>Work blocked</strong><br>A distinct error state when a turn fails. | <img src="docs/assets/previews/blocked-standard.png" alt="Blocked work on a standard external display" width="440"><br><strong>Work blocked</strong><br>A distinct error state when a turn fails. |
+| <img src="docs/assets/previews/idle-notched.png" alt="Idle island on a notched MacBook display" width="440"><br><strong>Idle</strong><br>A quiet presence while Codex is open. | <img src="docs/assets/previews/idle-standard.png" alt="Idle island on a standard external display" width="440"><br><strong>Idle</strong><br>A quiet presence while Codex is open. |
 
 <a id="features"></a>
 ## A little less window switching
@@ -33,7 +47,7 @@ Codex Island keeps the current local session title and activity near the top of 
 - **A signal when you are needed.** Recognized unanswered questions trigger a pulse; errors get a distinct visual state.
 - **At home on macOS.** SwiftUI and AppKit, notch-aware placement, a menu-bar control, and Reduce Motion support.
 - **Make it yours.** Adjust colors, height, visibility, and animation. Middle-click for 30 seconds of click-through.
-- **Optional companions.** Use the system icon or select a built-in pet from your installed Codex app. No personal pet images are bundled.
+- **Your Codex companions.** Select built-in, local custom, or locally cached cloud pets. No personal pet images are bundled. If cloud artwork is missing, view the pet in Codex and resync. [Pet sources and limits](docs/pet-animation.md).
 - **Local by default.** Read-only access to local state, with no app telemetry or network service.
 
 <a id="getting-started"></a>
@@ -62,7 +76,7 @@ The app appears in your menu bar. While Codex is running, the island stays visib
 | --- | --- |
 | Left-click the island | Open Codex |
 | Middle-click the island | Make it translucent and click-through for 30 seconds |
-| Open the menu-bar menu | Show or hide the island, choose a pet, change appearance, or resync |
+| Open the menu-bar menu | Show or hide the island, choose a pet, change appearance, or resync status and pets separately |
 | Enable Reduce Motion or pause animation | Keep the display calm |
 
 The island shows a moving outline while working, an input-colored pulse for recognized questions, a red pulse for errors, and a quieter idle state. Completing a turn does **not** imply an unread result.
@@ -84,7 +98,7 @@ The default source reads the current user's `~/.codex/` databases and active ses
 | Complete unread state, remote/cloud chats, full Codex pet parity | Not supported |
 | All fullscreen/Spaces combinations, display changes, long-run performance | Not fully validated |
 
-Codex's private data formats can change. An incompatible source shows unavailable rather than pretending to be idle. The executable currently uses `~/.codex/`; `CODEX_HOME` overrides are not wired up. Details: [local-source boundaries](docs/local-session-source.md).
+Codex's private data formats can change. An incompatible source shows unavailable rather than pretending to be idle. v0.7.3 and later honor an absolute `CODEX_HOME` directory in the launch environment; invalid overrides fail explicitly. Event failures use bounded retries and show limited synchronization while preserving database-confirmed activity. The v0.7.2 release uses `~/.codex/`. Details: [local-source boundaries](docs/local-session-source.md).
 
 <a id="development"></a>
 ## Development

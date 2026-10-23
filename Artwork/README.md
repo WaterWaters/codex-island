@@ -3,6 +3,9 @@
 - `AppIcon.png`：1024 × 1024，透明外沿，可用于项目头像。
 - `AppIcon.icns`：App 图标容器，包含 16–1024px 及 Retina 尺寸，打包脚本自动携带。
 - `../docs/assets/banner.png`：2172 × 724，README 横幅，已接入首页。
+- `../Sources/CodexIsland/Resources/Brand/AppIcon.png`：原彩图标的逐字节副本，由 SwiftPM 资源包加载，用于设置页，公开文件检查保持两份一致。
+- 菜单栏水猫标识：`BrandAssets.swift` 中的 `BrandMenuMark` 是为 18pt 单独绘制的猫耳 / `>_` / 单条水波图形，纯白、透明背景；删去卷尾与多层波纹，扩大终端镂空。使用 AppKit 绘制回调按目标屏幕的实际比例绘制，不预先栅格化成单张 3× 位图，也不复用跨屏位图缓存；按钮按原尺寸显示。设置页保留原色，菜单栏按用户要求固定白色。
+- `../docs/assets/previews/`：四状态 × 刘海 / 普通屏的八张公开原生视图渲染，使用合成内容与系统猫图标，生成方式见该目录 README。
 
 创意：抽象水猫 + 代码提示符 `>_` + W 形水波，横幅仅显示 Codex Island；Water 以水元素和 W 形水波表达。两图使用内置 image_gen 生成，图标的缩放与 ICNS 封装使用本机格式工具；没有使用私人宠物图片。项目按根目录 MIT 许可提供这些新品牌资产；Codex 名称仅说明兼容对象，不代表官方产品。
 

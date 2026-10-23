@@ -19,12 +19,26 @@
 </p>
 
 <p align="center">
-  <a href="#features">功能特色</a> · <a href="#getting-started">快速開始</a> · <a href="#privacy">隱私</a> · <a href="#documentation">文件</a>
+  <a href="#previews">介面預覽</a> · <a href="#features">功能特色</a> · <a href="#getting-started">快速開始</a> · <a href="#privacy">隱私</a> · <a href="#documentation">文件</a>
 </p>
 
 Codex Island 將目前本機工作階段的標題與活動放在螢幕頂端。工作進行到哪一步、什麼時候需要你回答，一眼就能看到；點擊狀態島即可回到 Codex。
 
 **獨立專案，與 OpenAI 無關聯。** 目前為以本機 Codex 相容性為基礎的 0.x 預覽版。
+
+<a id="previews"></a>
+## 看看狀態島的樣子
+
+四種日常狀態，分別展示在 MacBook 瀏海螢幕與一般外接螢幕上。工作階段標題在上、目前活動在下，不同狀態使用清楚可辨的輪廓提示。
+
+下圖以合成內容與原生 SwiftUI 視圖繪製，展示目前的簡體中文介面與缺少素材時的備用貓圖形；螢幕背景為示意構圖，並非桌面截圖或硬體驗收證據。[預覽產生方式](assets/previews/README.md)。
+
+| MacBook · 瀏海螢幕 | 外接顯示器 · 一般螢幕 |
+| :---: | :---: |
+| <img src="assets/previews/running-notched.png" alt="瀏海螢幕上的工作中狀態島" width="440"><br><strong>工作中</strong><br>一眼查看指令與工具活動。 | <img src="assets/previews/running-standard.png" alt="一般外接螢幕上的工作中狀態島" width="440"><br><strong>工作中</strong><br>一眼查看指令與工具活動。 |
+| <img src="assets/previews/needsInput-notched.png" alt="瀏海螢幕上的待回答提示" width="440"><br><strong>需要你</strong><br>需要回答時，給你清楚的提示。 | <img src="assets/previews/needsInput-standard.png" alt="一般外接螢幕上的待回答提示" width="440"><br><strong>需要你</strong><br>需要回答時，給你清楚的提示。 |
+| <img src="assets/previews/blocked-notched.png" alt="瀏海螢幕上的工作受阻狀態" width="440"><br><strong>工作受阻</strong><br>回合失敗時，使用獨立的錯誤狀態。 | <img src="assets/previews/blocked-standard.png" alt="一般外接螢幕上的工作受阻狀態" width="440"><br><strong>工作受阻</strong><br>回合失敗時，使用獨立的錯誤狀態。 |
+| <img src="assets/previews/idle-notched.png" alt="瀏海螢幕上的閒置狀態島" width="440"><br><strong>閒置</strong><br>Codex 開著時，安靜留在視線裡。 | <img src="assets/previews/idle-standard.png" alt="一般外接螢幕上的閒置狀態島" width="440"><br><strong>閒置</strong><br>Codex 開著時，安靜留在視線裡。 |
 
 <a id="features"></a>
 ## 少切換幾次視窗
@@ -33,7 +47,7 @@ Codex Island 將目前本機工作階段的標題與活動放在螢幕頂端。�
 - **需要你時，給個提示。** 已辨識的待回答問題觸發脈動，錯誤使用獨立的視覺狀態。
 - **融入 macOS。** SwiftUI 與 AppKit 原生介面，避開瀏海，支援選單列控制與減少動態效果。
 - **依你的習慣調整。** 自訂顏色、高度、顯示與動畫；按滑鼠中鍵即可暫時穿透 30 秒。
-- **可選的小夥伴。** 使用系統圖示，或從本機已安裝的 Codex 選擇內建寵物，不隨套件附帶個人寵物圖片。
+- **你的 Codex 小夥伴。** 支援內建、本機自訂與本機已快取的雲端寵物，不隨套件附帶個人圖片。雲端素材缺少時，請在 Codex 查看該寵物後重新同步。[素材來源與限制](pet-animation.md)。
 - **預設只在本機運作。** 唯讀存取本機狀態，應用程式沒有遙測或網路服務。
 
 <a id="getting-started"></a>
@@ -62,7 +76,7 @@ open build/CodexIsland.app
 | --- | --- |
 | 按左鍵點擊狀態島 | 開啟 Codex |
 | 按中鍵點擊狀態島 | 半透明，並讓滑鼠穿透 30 秒 |
-| 開啟選單列選單 | 顯示或隱藏、切換寵物、調整外觀、重新同步 |
+| 開啟選單列選單 | 顯示或隱藏、切換寵物、調整外觀，分別重新同步狀態與寵物 |
 | 開啟減少動態效果，或暫停動畫 | 保持安靜的顯示效果 |
 
 工作時輪廓流動，已辨識的問題等待使用介入色脈動，錯誤使用紅色脈動，閒置時進入低亮度狀態。回合完成**不等於**存在未讀結果。
@@ -84,7 +98,7 @@ open build/CodexIsland.app
 | 完整未讀、遠端 / 雲端聊天、與 Codex 寵物完全同源 | 不支援 |
 | 所有全螢幕 / Space 組合、顯示器變更、長時間效能 | 尚未完整驗收 |
 
-Codex 的內部資料格式可能改變。來源不相容時會顯示無法使用，不會假裝閒置。目前執行檔讀取 `~/.codex/`，尚未接入 `CODEX_HOME` 覆寫。詳見 [本機來源限制](local-session-source.md)。
+Codex 的內部資料格式可能改變。來源不相容時會顯示無法使用，不會假裝閒置。v0.7.3 起支援啟動環境中絕對目錄的 `CODEX_HOME`，無效覆寫會明確報錯；事件失敗會採用有上限的退避重試，保留資料庫已確認的活動並顯示同步受限。已發布的 v0.7.2 讀取 `~/.codex/`。詳見 [本機來源限制](local-session-source.md)。
 
 <a id="development"></a>
 ## 開發
