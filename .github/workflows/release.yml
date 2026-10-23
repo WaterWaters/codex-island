@@ -46,6 +46,8 @@ jobs:
         run: python3 Scripts/verify_repository.py
       - name: Release tests
         run: ./Scripts/test.sh -c release
+      - name: Process sampler CPU calibration
+        run: python3 Scripts/test_process_sampler.py
       - name: Universal app, DMG, ZIP and checksums
         env:
           TAG: ${{ steps.ref.outputs.tag }}

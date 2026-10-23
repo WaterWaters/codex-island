@@ -39,6 +39,8 @@ jobs:
           python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("Scripts/probe_desktop_ipc.py").read_text())'
       - name: Tests with synthetic fixtures
         run: ./Scripts/test.sh
+      - name: Process sampler CPU calibration
+        run: python3 Scripts/test_process_sampler.py
       - name: Release app and signature
         run: |
           ./Scripts/package_app.sh

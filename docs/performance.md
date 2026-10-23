@@ -61,6 +61,14 @@ xcrun clang -O2 -Wall -Wextra -Werror Scripts/sample_process.c -o /tmp/island-sa
 /tmp/island-sample APP_PID 1800 10 > /private/tmp/island-private-samples.jsonl
 ```
 
-输出包含单调墙钟、累积 user/system CPU 纳秒、physical footprint/RSS 字节、interrupt/package-idle 唤醒及系统 billed-energy 原始计数。首尾相减得窗口增量；CPU 百分比以增量 CPU 秒除墙钟秒 ×100，100% 表示一个 CPU 核。能耗计数不当作焦耳或活动监视器 Energy Impact；不可读或始终为零时标记无法取得，不推断零能耗。原始样本仅留本机，不进入 Git 或应用包。
+输出包含单调墙钟、累积 user/system CPU 纳秒、physical footprint/RSS 字节、interrupt/package-idle 唤醒及系统 billed-energy 原始计数。CPU 从 proc_pid_rusage 的 Mach 刻度按本机 mach_timebase_info 转换，JSON 同时记录换算比例；不能直接把原始刻度当纳秒。采样器须以本机架构编译运行：Rosetta 的虚拟时基与系统进程计数不同，因此转换执行会明确失败且不输出样本；无需关闭 Rosetta 或改变目标应用。首尾相减得窗口增量；CPU 百分比以增量 CPU 秒除墙钟秒 ×100，100% 表示一个 CPU 核。能耗计数不当作焦耳或活动监视器 Energy Impact；不可读或始终为零时标记无法取得，不推断零能耗。原始样本仅留本机，不进入 Git 或应用包。
 
 分别观察 idle、running、needsInput、关闭动画、隐藏、Codex关闭；记录同一 PID 的初期 / 稳态 / 末期与屏幕是否遮挡。演示 UI 不包含真实磁盘来源，合成来源也不代表真实 Codex 工作日使用。该工具本身与短时 smoke 不能替代 30 分钟 / 工作日完成证据。
+
+采样器的独立校准检查：
+
+```bash
+python3 Scripts/test_process_sampler.py
+```
+
+该检查只启动一个临时CPU工作子进程，把采样器的CPU增量与子进程自身的POSIX process_time_ns对照，另外验证参数与真实间隔。旧实现直接输出Mach刻度，在本机125/3时基下将CPU低估约41.67倍；修复前校准明确失败，修复后通过。早期未校准smoke的CPU百分比无效，不用于性能预算。持续采样若仍使用旧二进制，必须保留原始计数和时基另行换算，不能混用新旧单位。
