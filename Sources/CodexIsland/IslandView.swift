@@ -32,6 +32,7 @@ struct IslandView: View {
     private var tint: Color {
         IslandPalette.tint(for: model.effectState, settings: model.preferences.values)
     }
+    private var highContrast: Bool { model.preferences.values.appearancePreset == .highContrast }
 
     var body: some View {
         Button(action: openCodex) {
@@ -61,10 +62,10 @@ struct IslandView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.white)
         .accessibilityLabel(model.accessibilityDescription)
-        .accessibilityHint("切换到 Codex 应用")
-        .help(model.isLocalFeed ? "打开 Codex · 本机会话状态，完整宠物同步仍未验收" : "打开 Codex")
+        .accessibilityHint(L10n.text("切换到 Codex 应用"))
+        .help(L10n.text(model.isLocalFeed ? "打开 Codex · 本机会话状态，完整宠物同步仍未验收" : "打开 Codex"))
         .onHover { model.isHovered = $0 }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: model.isHovered)
+        .animation(reduceMotion || model.motionPaused ? nil : .easeInOut(duration: 0.16), value: model.isHovered)
     }
 
     private var statusRow: some View {
@@ -75,11 +76,11 @@ struct IslandView: View {
                     .truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
                     Text(verbatim: model.displayDetail).font(.system(size: 11))
-                        .foregroundStyle(model.effectState == .needsInput || model.effectState == .blocked ? tint : .white.opacity(0.55))
+                        .foregroundStyle(highContrast ? .white : model.effectState == .needsInput || model.effectState == .blocked ? tint : .white.opacity(0.55))
                     Spacer(minLength: 0)
                     if model.connection == .connected && !model.approvalUIIsPending && model.summary.runningCount > 1 {
-                        Text("\(model.summary.runningCount) 项运行中").font(.system(size: 9))
-                            .foregroundStyle(.white.opacity(0.32))
+                        Text(verbatim: L10n.count("island.running", model.summary.runningCount)).font(.system(size: 9))
+                            .foregroundStyle(.white.opacity(highContrast ? 1 : 0.32))
                     }
                 }
             }

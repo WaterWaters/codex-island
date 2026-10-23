@@ -28,6 +28,8 @@ expected = {
     'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Resources/Brand/AppIcon.png',
 }
 actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+expected.update(f'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Resources/{language}.lproj/Localizable.strings'
+                for language in ('en', 'zh-Hans', 'zh-Hant', 'ja'))
 if actual != expected or any(p.is_symlink() for p in root.rglob('*')):
     raise SystemExit('Unexpected bundle contents; refusing to package private or unreviewed files.')
 for name in ['CodexIsland', 'CodexIslandProbe']:
@@ -64,6 +66,9 @@ A native macOS status island for local Codex sessions, with activity, recognized
 ### Changes
 
 - Add a skippable, repeatable first-use guide and grouped settings with actionable connection status, manual resynchronization, and redacted diagnostic copying.
+- Support system-following or English, Simplified Chinese, Traditional Chinese, and Japanese UI, plus title privacy across visible and accessibility surfaces.
+- Add optional launch at login with real system status, an opt-in Control-Option-Command-I visibility shortcut with conflict reporting, pinned displays with fallback/reconnection, and appearance presets.
+- Stop hidden animation views and track overlapping sleep, screen sleep, and inactive-session reasons independently.
 - Validate large events incrementally without retaining full tool output, question titles, or answers; preserve question semantics and bounded parsing budgets.
 - Discover local custom pets and cloud pets already cached by Codex, load their names and animation, and preserve the selection across restarts. No network requests or personal images are bundled.
 - Preserve loaded pets when their source is temporarily unavailable; migrate the former system-icon selection to the built-in Codex pet.

@@ -126,7 +126,10 @@ public actor LocalSessionFeed {
             if $0.row.activityAt != $1.row.activityAt { return $0.row.activityAt < $1.row.activityAt }
             return $0.row.id < $1.row.id
         }
-        let focus = selected?.row ?? rows.first(where: { $0.id == focusedID }) ?? rows.max { $0.activityAt < $1.activityAt }
+        let focus = selected?.row ?? rows.first(where: { $0.id == focusedID }) ?? rows.max {
+            if $0.activityAt != $1.activityAt { return $0.activityAt < $1.activityAt }
+            return $0.id < $1.id
+        }
         focusedID = focus?.id
         return FeedObservation(
             snapshot: ActivitySnapshot(source: "local-session-history-v1", sessionID: sessionID,

@@ -8,12 +8,23 @@ import IslandCore
 final class PetLibrary {
     var pets: [PetDescriptor] = []
     var selectedID = IslandSettings.defaultPetID
-    var displayName = "未同步"
+    private var selectedDisplayName: String?
+    var displayName: String { selectedDisplayName ?? L10n.text("未同步") }
     var atlas: PetAtlas?
     var timing = PetTimingProfile.compatibility
     var isLoading = false
     var timingIsSynced = false
-    var statusMessage = "使用内置兼容时长"
+    private enum StatusMessage {
+        case source(String), synchronized(String, partial: Bool), compatibility(partial: Bool)
+    }
+    private var status: StatusMessage = .source("使用内置兼容时长")
+    var statusMessage: String {
+        switch status {
+        case .source(let source): L10n.text(source)
+        case .synchronized(let version, let partial): L10n.format(partial ? "pet.synced_partial" : "pet.synced", version)
+        case .compatibility(let partial): L10n.value(partial ? "pet.compatibility_partial" : "pet.compatibility_animation")
+        }
+    }
     @ObservationIgnored private let reader: CodexPetReader
     @ObservationIgnored private let home: URL?
     @ObservationIgnored private let cacheDirectory: URL
@@ -37,13 +48,13 @@ final class PetLibrary {
         guard !Task.isCancelled else { return false }
         pets = (custom?.pets ?? []) + (builtin?.pets ?? [])
         if atlas != nil, requested == selectedID, !pets.contains(where: { $0.id == requested }) {
-            statusMessage = "本次同步失败，保留上次宠物；请在 Codex 中查看后重新同步"
+            status = .source("本次同步失败，保留上次宠物；请在 Codex 中查看后重新同步")
             return false
         }
         guard let chosen = pets.first(where: { $0.id == requested })
                 ?? pets.first(where: { $0.id == custom?.preferredID })
                 ?? pets.first(where: { $0.id == IslandSettings.defaultPetID }) ?? pets.first else {
-            statusMessage = atlas == nil ? "未找到可用宠物，请在 Codex 中查看后重新同步" : "本次同步失败，保留上次宠物"
+            status = .source(atlas == nil ? "未找到可用宠物，请在 Codex 中查看后重新同步" : "本次同步失败，保留上次宠物")
             return false
         }
         do {
@@ -51,10 +62,10 @@ final class PetLibrary {
             guard !Task.isCancelled else { return false }
             atlas = nextAtlas
             selectedID = chosen.id
-            displayName = chosen.name
+            selectedDisplayName = chosen.name
             if let builtin { timing = builtin.timing; timingIsSynced = true }
-            let message = builtin.map { "动画时长已同步 · Codex \($0.version)" } ?? "使用兼容动画时长"
-            statusMessage = message + (custom?.sourceUnavailable == true ? " · 部分自定义宠物缓存暂不可用" : "")
+            let partial = custom?.sourceUnavailable == true
+            status = builtin.map { .synchronized($0.version, partial: partial) } ?? .compatibility(partial: partial)
             return chosen.id == requested
         } catch {
             guard !Task.isCancelled else { return false }
@@ -64,10 +75,10 @@ final class PetLibrary {
             if atlas == nil, chosen.id != IslandSettings.defaultPetID,
                let fallback = pets.first(where: { $0.id == IslandSettings.defaultPetID }),
                let decoded = try? await load(fallback), !Task.isCancelled {
-                atlas = decoded; selectedID = fallback.id; displayName = fallback.name
+                atlas = decoded; selectedID = fallback.id; selectedDisplayName = fallback.name
                 if let builtin { timing = builtin.timing; timingIsSynced = true }
             }
-            statusMessage = atlas == nil ? "宠物素材暂不可用，请在 Codex 中查看后重新同步" : "本次同步失败，保留可用宠物与时长"
+            status = .source(atlas == nil ? "宠物素材暂不可用，请在 Codex 中查看后重新同步" : "本次同步失败，保留可用宠物与时长")
             return false
         }
     }

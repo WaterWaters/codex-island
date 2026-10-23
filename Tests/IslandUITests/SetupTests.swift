@@ -49,7 +49,7 @@ import Testing
     #expect(IslandPreferences().values.contentHeight == IslandSettings().contentHeight)
 }
 
-@Test func connectionPresentationSeparatesActionableFailuresAndRecoveryHealth() {
+@MainActor @Test func connectionPresentationSeparatesActionableFailuresAndRecoveryHealth() {
     let states: [(ConnectionState, ConnectionPresentation.Status)] = [
         (.connecting, .checking), (.appNotInstalled, .notInstalled), (.appNotRunning, .notRunning),
         (.missingLocalData, .missingLocalData), (.unsupported, .incompatible), (.unavailable, .temporaryFailure),

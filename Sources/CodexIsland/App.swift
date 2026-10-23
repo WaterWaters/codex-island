@@ -69,7 +69,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var requestedPetID: String?
     private let approvalObserver = ApprovalUIObserver()
     private var gate = SnapshotGate()
-    private var suspended = false
+    private var suspension = SuspensionState()
+    private var suspended: Bool { suspension.isSuspended }
+    private let loginItem: LoginItemController
+    private let shortcut = ShortcutController()
     private var refreshInFlight = false
     private var sourceGeneration = 0
     private var source: any StatusSource
@@ -79,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.options = options
         let defaults: UserDefaults? = options.permitsPersistentChanges ? .standard : nil
         model = IslandModel(preferences: IslandPreferences(defaults: defaults))
+        loginItem = LoginItemController(service: options.permitsPersistentChanges ? SystemLoginItem() : nil)
         onboardingProgress = OnboardingProgress(defaults: defaults,
             permitsAutomaticPresentation: options.permitsPersistentChanges)
         if let state = options.demo { source = DemoStatusSource(state: state) }
@@ -94,6 +98,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSApp.setActivationPolicy(.accessory)
         if options.diagnose { diagnose(); NSApp.terminate(nil); return }
+        L10n.shared.configure(language: model.preferences.values.language)
+        configureShortcut()
         model.isDemo = options.demo != nil
         model.isExternalFeed = options.statusFile != nil
         model.isLocalFeed = options.demo == nil && options.statusFile == nil
@@ -241,7 +247,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.update(model: model) { [weak self] in self?.openCodex() }
     }
 
+    private func configureShortcut() {
+        shortcut.configure(enabled: model.preferences.values.shortcutEnabled) { [weak self] in
+            self?.model.preferences.values.isVisible.toggle()
+        }
+    }
+
+    private func refreshLanguage() {
+        let previous = L10n.shared.language
+        L10n.shared.configure(language: model.preferences.values.language)
+        guard previous != L10n.shared.language else { return }
+        settingsWindow?.refreshLanguage()
+        onboardingWindow?.refreshLanguage()
+        menuBar?.refreshLanguage()
+    }
+
     private func preferencesDidChange() {
+        refreshLanguage()
+        configureShortcut()
         if model.preferences.values.approvalRecognitionEnabled != true {
             model.approvalUIIsPending = false
             model.approvalAccessMessage = "审批窗口识别未开启"
@@ -273,7 +296,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsWindow = SettingsWindowController(model: model, refreshPets: { [weak self] in self?.synchronizePets(force: true) },
                 openCodex: { [weak self] in self?.openCodex() },
                 refreshStatus: { [weak self] in self?.resynchronizeStatus() },
-                reviewOnboarding: { [weak self] in self?.showOnboarding() })
+                reviewOnboarding: { [weak self] in self?.showOnboarding() },
+                loginItem: loginItem, shortcut: shortcut)
         }
         settingsWindow?.show()
     }
@@ -313,26 +337,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             })
         }
-        for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
+        let lifecycle: [(Notification.Name, SuspensionState.Reason, Bool)] = [
+            (NSWorkspace.willSleepNotification, .systemSleep, true),
+            (NSWorkspace.didWakeNotification, .systemSleep, false),
+            (NSWorkspace.screensDidSleepNotification, .displaySleep, true),
+            (NSWorkspace.screensDidWakeNotification, .displaySleep, false),
+            (NSWorkspace.sessionDidResignActiveNotification, .inactiveSession, true),
+            (NSWorkspace.sessionDidBecomeActiveNotification, .inactiveSession, false)
+        ]
+        for (name, reason, active) in lifecycle {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    self?.suspended = true
-                    self?.sourceGeneration &+= 1
-                    self?.model.animationsPaused = true
-                    self?.pollTask?.cancel()
-                    self?.panel?.hide()
+                    guard let self else { return }
+                    let wasSuspended = self.suspended
+                    self.suspension.set(reason, active: active)
+                    self.model.animationsPaused = self.suspended
+                    if self.suspended {
+                        self.sourceGeneration &+= 1
+                        self.pollTask?.cancel()
+                        self.panel?.hide()
+                    } else if wasSuspended {
+                        self.startPolling()
+                    }
                 }
             })
         }
-        for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.suspended = false
-                    self?.model.animationsPaused = false
-                    self?.startPolling()
-                }
-            })
-        }
+        observers.append(NotificationCenter.default.addObserver(forName: NSLocale.currentLocaleDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshLanguage(); self?.render() }
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.loginItem.refresh(); self?.refreshLanguage() }
+        })
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.render() }
         })
@@ -363,6 +398,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pollTask?.cancel()
         petTask?.cancel()
         model.preferences.onChange = nil
+        shortcut.close()
         menuBar?.close()
         settingsWindow?.close()
         onboardingWindow?.close()

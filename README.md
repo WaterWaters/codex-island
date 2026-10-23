@@ -68,6 +68,8 @@ The app appears in your menu bar. While Codex is running, the island stays visib
 
 Source builds after v0.7.3 add a skippable first-use guide and General / Appearance / Connection / Experimental settings. The Connection tab explains the next step and can copy redacted diagnostics. These additions are not in the v0.7.3 download. [First-use and connection guide](docs/getting-started.md).
 
+Unreleased source adds title privacy, optional launch at login, an opt-in ⌃⌥⌘I visibility shortcut, pinned-display recovery, and standard / quiet / high-contrast appearance presets. Settings changes take effect immediately. Login approval and shortcut conflicts display their actual system result.
+
 > [!NOTE]
 > The current package is signed ad hoc for local use and is not notarized. It builds for your current CPU architecture. Apple Silicon with Swift 6.4 has been tested; macOS 14 and Intel runtime validation are still pending.
 
@@ -88,7 +90,7 @@ The island shows a moving outline while working, an input-colored pulse for reco
 
 The default source reads the current user's `~/.codex/` databases and active session events. It does not modify Codex data, send chat messages, approve requests, or mark anything read. Parsed events are processed in memory; diagnostic output excludes session titles and conversation payloads.
 
-**Titles are visible on screen and through VoiceOver.** Hide the island before sharing your screen when needed. Approval-button recognition is an optional, off-by-default Accessibility feature; the OS permission is broader than the read-only checks this app performs. See [Security and privacy](SECURITY.md) for details.
+**Titles are visible by default.** Unreleased source adds title privacy covering the island, hover text and VoiceOver; you can also hide the island before sharing. Approval-button recognition is an optional, off-by-default Accessibility feature; the OS permission is broader than the read-only checks this app performs. See [Security and privacy](SECURITY.md) for details.
 
 <a id="compatibility"></a>
 ## What to expect
@@ -139,7 +141,7 @@ For a custom producer, see the [explicit status-file contract](docs/status-input
 <a id="documentation"></a>
 ## Documentation
 
-Start with the [documentation index](docs/README.md) for architecture, source behavior, pet animation, benchmarks, and release checks. Most technical guides are currently written in Chinese; the project overview is available in the four languages linked above. These translations do not add app UI locales.
+Start with the [documentation index](docs/README.md) for architecture, source behavior, pet animation, benchmarks, and release checks. Most technical guides are currently written in Chinese; the project overview is available in the four languages linked above. Unreleased source also supports system-following or English, Simplified Chinese, Traditional Chinese, and Japanese app UI; v0.7.3 downloads do not.
 
 <a id="contributing"></a>
 ## Contributing

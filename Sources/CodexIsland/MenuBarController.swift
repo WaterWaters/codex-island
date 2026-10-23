@@ -26,7 +26,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         item.button?.image = image
         item.button?.imageScaling = .scaleNone
         if image == nil { item.button?.title = "Island" }
-        item.button?.setAccessibilityLabel("Codex Island 菜单")
+        item.button?.setAccessibilityLabel(L10n.text("Codex Island 菜单"))
         let menu = NSMenu(); menu.delegate = self; item.menu = menu
         let main = NSMenu()
         let application = NSMenu(title: "Codex Island")
@@ -35,18 +35,35 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menuWillOpen(application)
         menuDidClose(application)
         let entry = NSMenuItem(); entry.submenu = application; main.addItem(entry)
-        let edit = NSMenu(title: "编辑")
-        for (title, action, key) in [("撤销", "undo:", "z"), ("剪切", "cut:", "x"), ("复制", "copy:", "c"), ("粘贴", "paste:", "v"), ("全选", "selectAll:", "a")] {
-            edit.addItem(NSMenuItem(title: title, action: Selector(action), keyEquivalent: key))
-        }
-        let editItem = NSMenuItem(title: "编辑", action: nil, keyEquivalent: "")
-        editItem.submenu = edit; main.addItem(editItem)
+        installEditMenu(main)
         NSApp.mainMenu = main
         updateStatus()
     }
 
+    private func installEditMenu(_ main: NSMenu) {
+        let edit = NSMenu(title: L10n.text("编辑"))
+        for (title, action, key) in [(L10n.text("撤销"), "undo:", "z"), (L10n.text("剪切"), "cut:", "x"), (L10n.text("复制"), "copy:", "c"), (L10n.text("粘贴"), "paste:", "v"), (L10n.text("全选"), "selectAll:", "a")] {
+            edit.addItem(NSMenuItem(title: title, action: Selector(action), keyEquivalent: key))
+        }
+        let editItem = NSMenuItem(title: L10n.text("编辑"), action: nil, keyEquivalent: "")
+        editItem.submenu = edit; main.addItem(editItem)
+    }
+
+    func refreshLanguage() {
+        item.button?.setAccessibilityLabel(L10n.text("Codex Island 菜单"))
+        if let main = NSApp.mainMenu {
+            if let application = main.items.first?.submenu {
+                menuWillOpen(application)
+                menuDidClose(application)
+            }
+            if main.items.count > 1 { main.removeItem(at: 1) }
+            installEditMenu(main)
+        }
+        updateStatus()
+    }
+
     func updateStatus() {
-        item.button?.toolTip = "Codex Island · \(model.displayDetail)" + (model.preferences.values.isVisible ? "" : " · 岛已隐藏") + (model.isClickThrough ? " · 临时穿透中" : "")
+        item.button?.toolTip = "Codex Island · \(model.displayDetail)" + (model.preferences.values.isVisible ? "" : " · " + L10n.text("岛已隐藏")) + (model.isClickThrough ? " · " + L10n.text("临时穿透中") : "")
     }
 
     @discardableResult private func add(_ title: String, to menu: NSMenu, action: Selector? = nil, key: String = "") -> NSMenuItem {
@@ -60,28 +77,28 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let header = add("Codex Island · \(model.displayDetail)", to: menu)
         header.isEnabled = false
-        add("打开 Codex", to: menu, action: #selector(openApplication))
+        add(L10n.text("打开 Codex"), to: menu, action: #selector(openApplication))
         menu.addItem(.separator())
-        let visibility = add("显示岛", to: menu, action: #selector(toggleVisibility))
+        let visibility = add(L10n.text("显示岛"), to: menu, action: #selector(toggleVisibility))
         visibility.state = model.preferences.values.isVisible ? .on : .off
-        let pets = NSMenu(title: "宠物")
-        if model.pets.pets.isEmpty { add("暂无可用宠物", to: pets).isEnabled = false }
+        let pets = NSMenu(title: L10n.text("宠物"))
+        if model.pets.pets.isEmpty { add(L10n.text("暂无可用宠物"), to: pets).isEnabled = false }
         for pet in model.pets.pets {
             let entry = add(pet.name, to: pets, action: #selector(selectPet(_:)))
             entry.representedObject = pet.id
             entry.state = pet.id == model.pets.selectedID ? .on : .off
         }
-        add("宠物 · \(model.pets.displayName)", to: menu).submenu = pets
-        let motion = add("播放动态效果", to: menu, action: #selector(toggleMotion))
+        add(L10n.format("menu.pet", model.pets.displayName), to: menu).submenu = pets
+        let motion = add(L10n.text("播放动态效果"), to: menu, action: #selector(toggleMotion))
         motion.state = model.preferences.values.animationsEnabled ? .on : .off
         countdownItem = add("", to: menu, action: #selector(changeClickThrough))
         updateCountdown()
         menu.addItem(.separator())
         add(String(localized: SetupText.settingsMenu), to: menu, action: #selector(settings), key: ",")
-        add("重新同步状态", to: menu, action: #selector(syncStatus))
-        add("重新同步宠物与时长", to: menu, action: #selector(syncPets)).isEnabled = !model.pets.isLoading
+        add(L10n.text("重新同步状态"), to: menu, action: #selector(syncStatus))
+        add(L10n.text("重新同步宠物与时长"), to: menu, action: #selector(syncPets)).isEnabled = !model.pets.isLoading
         menu.addItem(.separator())
-        add("退出 Codex Island", to: menu, action: #selector(quit), key: "q")
+        add(L10n.text("退出 Codex Island"), to: menu, action: #selector(quit), key: "q")
         countdownTimer?.invalidate()
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.updateCountdown() }
@@ -92,10 +109,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func menuDidClose(_ menu: NSMenu) { countdownTimer?.invalidate(); countdownTimer = nil; countdownItem = nil }
     private func updateCountdown() {
         let remaining = remainingSeconds()
-        countdownItem?.title = remaining > 0 ? "恢复岛交互（还剩 \(remaining) 秒）" : "半透明穿透 30 秒"
+        countdownItem?.title = remaining > 0 ? L10n.count("menu.remaining", remaining) : L10n.text("半透明穿透 30 秒")
     }
     @objc private func toggleVisibility() { model.preferences.values.isVisible.toggle() }
-    @objc private func toggleMotion() { model.preferences.values.animationsEnabled.toggle() }
+    @objc private func toggleMotion() {
+        model.preferences.values.setAnimationsEnabled(!model.preferences.values.animationsEnabled)
+    }
     @objc private func selectPet(_ sender: NSMenuItem) {
         if let id = sender.representedObject as? String { model.preferences.values.selectedPetID = id }
     }

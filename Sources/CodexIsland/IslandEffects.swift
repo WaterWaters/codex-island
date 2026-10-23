@@ -22,16 +22,26 @@ struct IslandOutline: View {
     var settings = IslandSettings()
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: state == .running ? 1.0 / 30 : 1.0 / 15, paused: paused)) { context in
-            let time = paused ? 2.4 : context.date.timeIntervalSinceReferenceDate
+        let staticOutline = paused || !settings.animationsEnabled
+            || settings.appearancePreset == .quiet || settings.appearancePreset == .highContrast
+        TimelineView(.animation(minimumInterval: state == .running ? 1.0 / 30 : 1.0 / 15,
+                                paused: staticOutline || state == .ready)) { context in
+            let time = staticOutline ? 2.4 : context.date.timeIntervalSinceReferenceDate
             let shape = IslandShape(notched: notched)
             let tint = IslandPalette.tint(for: state, settings: settings)
             let primary = Color(islandHex: settings.neonPrimary)
             let secondary = Color(islandHex: settings.neonSecondary)
             let pulse = (sin(time * (state == .idle ? 1.2 : 3.2)) + 1) / 2
             ZStack {
-                shape.stroke(.white.opacity(0.09), lineWidth: 0.8)
-                if state == .running {
+                if settings.appearancePreset == .highContrast {
+                    // A continuous, unblurred outline remains legible against
+                    // both dark and light desktops. Status also has a glyph.
+                    shape.stroke(.white, lineWidth: 2)
+                    shape.stroke(tint, lineWidth: 1)
+                } else if settings.appearancePreset == .quiet {
+                    shape.stroke(tint.opacity(state == .idle ? 0.35 : 0.75), lineWidth: 1.1)
+                } else if state == .running {
+                    shape.stroke(.white.opacity(0.09), lineWidth: 0.8)
                     shape.stroke(AngularGradient(colors: [primary.opacity(0.5), primary, secondary, primary.opacity(0.5)],
                                                  center: .center, angle: .degrees(time.truncatingRemainder(dividingBy: 6) * 60)),
                                  lineWidth: 1.1).opacity(0.65)
@@ -81,8 +91,10 @@ struct IslandActivityGlyph: View {
     var settings = IslandSettings()
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: paused || state == .ready)) { context in
-            let time = paused ? 2.4 : context.date.timeIntervalSinceReferenceDate
+        let staticGlyph = paused || !settings.animationsEnabled
+            || settings.appearancePreset == .quiet || settings.appearancePreset == .highContrast
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: staticGlyph || state == .ready)) { context in
+            let time = staticGlyph ? 2.4 : context.date.timeIntervalSinceReferenceDate
             let tint = IslandPalette.tint(for: state, settings: settings)
             Group {
                 if state == .idle {
@@ -95,7 +107,7 @@ struct IslandActivityGlyph: View {
                 } else {
                     Image(systemName: state.symbol)
                         .font(.system(size: 15, weight: .semibold))
-                        .rotationEffect(.degrees(state == .running && !paused ? time.truncatingRemainder(dividingBy: 3) * 120 : 0))
+                        .rotationEffect(.degrees(state == .running && !staticGlyph ? time.truncatingRemainder(dividingBy: 3) * 120 : 0))
                 }
             }
             .foregroundStyle(tint)

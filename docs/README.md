@@ -57,6 +57,6 @@ When changing the overview:
 6. Leave private images, session data, and `local/` outside the public file set. Banner artwork is branding, not a screenshot of the running app.
 7. Keep all eight state-preview references and their translated captions / alt text aligned. Describe them as native view renders with synthetic content; do not claim screenshots or hardware validation.
 
-Translation review should also check natural phrasing and terminology; structural checks alone do not establish translation quality. README translations cover documentation, not app UI localization.
+Translation review should also check natural phrasing and terminology; structural checks alone do not establish translation quality. Unreleased source separately supports system-following and English, Simplified Chinese, Traditional Chinese, and Japanese app UI. The v0.7.3 download predates this feature.
 
 For the reference projects and editorial choices behind the current layout, see [README design notes](readme-design.md).

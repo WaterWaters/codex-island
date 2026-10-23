@@ -29,17 +29,17 @@ final class IslandModel {
     var animationsPaused = false
 
     init(preferences: IslandPreferences = IslandPreferences()) { self.preferences = preferences }
-    var motionPaused: Bool { animationsPaused || !preferences.values.animationsEnabled }
+    var motionPaused: Bool { animationsPaused || !preferences.values.isVisible || !preferences.values.animationsEnabled || preferences.values.appearancePreset == .quiet || preferences.values.appearancePreset == .highContrast }
 
     var title: String {
         // AX proves a visible decision, but supplies no reliable thread ID.
-        approvalUIIsPending ? "Codex" : sessionTitle ?? "Codex"
+        preferences.values.hideSessionTitle || approvalUIIsPending ? "Codex" : sessionTitle ?? "Codex"
     }
 
     var detail: String? {
-        if launchFailed { return "无法打开 Codex" }
-        if approvalUIIsPending { return "等待批准" }
-        return switch connection {
+        if launchFailed { return L10n.text("无法打开 Codex") }
+        if approvalUIIsPending { return L10n.text("等待批准") }
+        let source: String? = switch connection {
         case .connected:
             switch summary.state {
             case .needsInput: SessionActivity.needsInput.title
@@ -52,13 +52,14 @@ final class IslandModel {
         case .unsupported: "暂无法同步"
         case .unavailable: "状态暂不可用"
         case .appNotRunning: "Codex 未运行"
-        case .appNotInstalled: String(localized: SetupText.resource("connection.not_installed.detail", "未找到 Codex"))
-        case .missingLocalData: String(localized: SetupText.resource("connection.missing_data.detail", "等待本机数据"))
+        case .appNotInstalled: "未找到 Codex"
+        case .missingLocalData: "等待本机数据"
         }
+        return source.map(L10n.text)
     }
 
     var sourceBadge: String? {
-        isDemo ? "演示" : isExternalFeed ? "外部" : isLocalFeed ? "本机" : nil
+        isDemo ? L10n.text("演示") : isExternalFeed ? L10n.text("外部") : isLocalFeed ? L10n.text("本机") : nil
     }
 
     var state: WorkState { approvalUIIsPending ? .needsInput : connection == .connected ? summary.state : .idle }
@@ -70,13 +71,16 @@ final class IslandModel {
     var isWorking: Bool { connection == .connected && summary.state == .running }
     var petMotion: PetMotion { PetMotion(state: effectState) }
     var displayDetail: String {
-        let prefix = isDemo ? "演示 · " : isExternalFeed ? "外部 · " : ""
-        let suffix: String
+        var message = detail ?? L10n.text("同步中")
+        if isDemo { message = L10n.format("island.detail", L10n.text("演示"), message) }
+        else if isExternalFeed { message = L10n.format("island.detail", L10n.text("外部"), message) }
         if isLocalFeed, connection == .connected, !approvalUIIsPending, let health = localFeedHealth {
-            suffix = health.degradedThreads > 0 ? " · 同步受限" : health.caughtUp ? "" : " · 同步中"
-        } else { suffix = "" }
-        return prefix + (detail ?? "同步中") + suffix
+            if health.degradedThreads > 0 { message = L10n.format("island.detail", message, L10n.text("同步受限")) }
+            else if !health.caughtUp { message = L10n.format("island.detail", message, L10n.text("同步中")) }
+        }
+        return message
     }
+
     var isExpanded: Bool { true }
     var shouldShow: Bool {
         if !preferences.values.isVisible { return false }
@@ -86,8 +90,15 @@ final class IslandModel {
     }
 
     var accessibilityDescription: String {
-        [title, displayDetail, sourceBadge, "宠物\(pets.displayName)", isClickThrough ? "临时穿透中" : nil,
-         connection == .connected && !approvalUIIsPending ? summary.detail : nil, "打开 Codex"].compactMap { $0 }.joined(separator: "，")
+        let extra: String?
+        if summary.state != .running, summary.runningCount > 0 { extra = L10n.count("summary.other_running", summary.runningCount) }
+        else if summary.state == .running, summary.runningCount > 1 { extra = L10n.count("summary.running", summary.runningCount) }
+        else if summary.state == .ready, summary.primaryCount > 1 { extra = L10n.count("summary.ready", summary.primaryCount) }
+        else { extra = nil }
+        return [title, displayDetail, sourceBadge, L10n.format("accessibility.pet", pets.displayName),
+            isClickThrough ? L10n.text("临时穿透中") : nil,
+            connection == .connected && !approvalUIIsPending ? extra : nil, L10n.text("打开 Codex")]
+            .compactMap { $0 }.joined(separator: ", ")
     }
 
     var connectionPresentation: ConnectionPresentation {

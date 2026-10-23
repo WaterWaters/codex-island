@@ -50,3 +50,17 @@ CODEX_ISLAND_BENCHMARK=1 ./Scripts/test.sh -c release --filter syntheticFeedPerf
 v0.7.2 之后的源码对坏 JSONL / 超长行 / 事件 I/O 失败增加按会话 / 回合隔离的单调时钟退避，间隔为 1、2、4、8、16、30 秒，上限 30 秒；退避期间不重开该事件文件，数据库查询和其他健康会话仍正常处理。重试完整追平后才清除失败次数；单次成功读到部分数据不重置预算。持久损坏仍可能无法追平，此时保守显示同步受限，不跳过损坏记录。新回合和手动状态同步可立即重置，文件修复在下次重试时检查。详见 [来源恢复行为](local-session-source.md)。
 
 文件描述符相对路径防竞态、ASAR 树深度与 parser fuzzing 仍属于后续加固范围。本次恢复策略的夹具通过不能代替整应用性能和真实桌面验证。
+
+
+## 整应用聚合采样工具
+
+未发布源码提供 `Scripts/sample_process.c`，基于系统 `proc_pid_rusage` v4 计数，不读取命令行、会话、路径或堆栈。对已经确认的应用 PID 执行：
+
+```bash
+xcrun clang -O2 -Wall -Wextra -Werror Scripts/sample_process.c -o /tmp/island-sample
+/tmp/island-sample APP_PID 1800 10 > /private/tmp/island-private-samples.jsonl
+```
+
+输出包含单调墙钟、累积 user/system CPU 纳秒、physical footprint/RSS 字节、interrupt/package-idle 唤醒及系统 billed-energy 原始计数。首尾相减得窗口增量；CPU 百分比以增量 CPU 秒除墙钟秒 ×100，100% 表示一个 CPU 核。能耗计数不当作焦耳或活动监视器 Energy Impact；不可读或始终为零时标记无法取得，不推断零能耗。原始样本仅留本机，不进入 Git 或应用包。
+
+分别观察 idle、running、needsInput、关闭动画、隐藏、Codex关闭；记录同一 PID 的初期 / 稳态 / 末期与屏幕是否遮挡。演示 UI 不包含真实磁盘来源，合成来源也不代表真实 Codex 工作日使用。该工具本身与短时 smoke 不能替代 30 分钟 / 工作日完成证据。

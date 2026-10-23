@@ -53,6 +53,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
+    func refreshLanguage() { window.title = String(localized: SetupText.guideTitle) }
     func close() { window.close() }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         if !explicitlyFinished { progress.finish(.skipped) }

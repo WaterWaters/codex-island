@@ -21,6 +21,7 @@ final class FloatingPanel: NSPanel {
 final class IslandPanelController {
     private let panel: FloatingPanel
     private var geometry: IslandGeometry?
+    private var screenFrame: NSRect?
     private var hostingView: NSHostingView<IslandView>?
     private var mouseMonitor: Any?
     private var localMouseMonitor: Any?
@@ -56,7 +57,9 @@ final class IslandPanelController {
     }
 
     func update(model: IslandModel, openCodex: @escaping @MainActor () -> Void) {
-        guard model.shouldShow, let screen = NSScreen.screens.first else { hide(); return }
+        guard model.shouldShow,
+              let screen = DisplayCatalog.screen(preferredID: model.preferences.values.preferredDisplayID)
+        else { model.isHovered = false; hide(); return }
         let inset = screen.safeAreaInsets.top
         let left = screen.auxiliaryTopLeftArea
         let right = screen.auxiliaryTopRightArea
@@ -66,12 +69,16 @@ final class IslandPanelController {
         let next = IslandGeometry.layout(screenWidth: screen.frame.width, notchWidth: notchWidth,
                                          notchHeight: inset, expanded: model.isExpanded,
                                          contentHeight: model.preferences.values.contentHeight)
-        let rect = NSRect(x: screen.frame.midX - next.width / 2,
-                          y: next.hasNotch ? screen.frame.maxY - next.height : screen.visibleFrame.maxY - next.height - 8,
-                          width: next.width, height: next.height)
+        let rect = DisplayPlacementPolicy.frame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame,
+                                               geometry: next, backingScale: screen.backingScaleFactor)
         // Keep the current view alive across duplicate snapshots (including animation ticks).
         let changed = geometry != next
-        let animate = changed && panel.isVisible && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let animate = changed && panel.isVisible && !model.motionPaused
+            && screenFrame == screen.frame
+            && model.preferences.values.appearancePreset != .quiet
+            && model.preferences.values.appearancePreset != .highContrast
+            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        screenFrame = screen.frame
         if changed {
             geometry = next
             let root = IslandView(model: model, geometry: next, openCodex: openCodex)
@@ -111,7 +118,16 @@ final class IslandPanelController {
         panel.ignoresMouseEvents = !visible
     }
 
-    func hide() { panel.orderOut(nil); panel.ignoresMouseEvents = true }
+    func hide() {
+        panel.orderOut(nil)
+        panel.ignoresMouseEvents = true
+        // Removing the host tears down TimelineView schedules while hidden or
+        // suspended. Keeping a detached SwiftUI tree would keep animation work.
+        panel.contentView = nil
+        hostingView = nil
+        geometry = nil
+        screenFrame = nil
+    }
 
     func beginClickThrough() {
         guard panel.isVisible else { return }
@@ -138,6 +154,7 @@ final class IslandPanelController {
 
     func close() {
         restoreTask?.cancel()
+        hide()
         panel.middleClick = nil
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }

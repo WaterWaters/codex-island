@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "CodexIsland",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [.executable(name: "CodexIsland", targets: ["CodexIsland"])],
     targets: [
@@ -11,7 +12,7 @@ let package = Package(
         .target(name: "DesktopFeed", dependencies: ["IslandCore", "CSQLite"]),
         .target(name: "CodexAssets", dependencies: ["IslandCore"]),
         .executableTarget(name: "CodexIsland", dependencies: ["IslandCore", "DesktopFeed", "CodexAssets"],
-                          resources: [.copy("Resources/Brand")]),
+                          resources: [.copy("Resources/Brand"), .process("Resources/Localization")]),
         .executableTarget(name: "CodexIslandProbe", dependencies: ["DesktopFeed"]),
         .testTarget(name: "IslandCoreTests", dependencies: ["IslandCore"]),
         .testTarget(name: "DesktopFeedTests", dependencies: ["DesktopFeed", "CSQLite"]),

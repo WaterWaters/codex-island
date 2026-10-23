@@ -52,6 +52,11 @@ cp "$ROOT/Artwork/AppIcon.icns" "$STAGED_APP/Contents/Resources/AppIcon.icns"
 BRAND_BUNDLE="$STAGED_APP/Contents/Resources/CodexIsland_CodexIsland.bundle"
 mkdir -p "$BRAND_BUNDLE/Contents/Resources/Brand"
 cp "$ROOT/Sources/CodexIsland/Resources/Brand/AppIcon.png" "$BRAND_BUNDLE/Contents/Resources/Brand/AppIcon.png"
+for LANGUAGE in en zh-Hans zh-Hant ja; do
+  mkdir -p "$BRAND_BUNDLE/Contents/Resources/$LANGUAGE.lproj"
+  cp "$ROOT/Sources/CodexIsland/Resources/Localization/$LANGUAGE.lproj/Localizable.strings" \
+    "$BRAND_BUNDLE/Contents/Resources/$LANGUAGE.lproj/Localizable.strings"
+done
 cat > "$BRAND_BUNDLE/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -59,6 +64,7 @@ cat > "$BRAND_BUNDLE/Contents/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key><string>dev.water.codex-island.brand</string>
   <key>CFBundleName</key><string>CodexIsland_CodexIsland</string>
   <key>CFBundlePackageType</key><string>BNDL</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
 </dict></plist>
 PLIST
 

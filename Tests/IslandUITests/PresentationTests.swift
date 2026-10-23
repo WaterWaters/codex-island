@@ -42,6 +42,9 @@ import ImageIO
 }
 
 @MainActor @Test func incompleteLocalEventsRemainWorkingWithVisibleHealth() {
+    let previousLanguage = L10n.shared.language
+    L10n.shared.configure(language: .zhHans)
+    defer { L10n.shared.configure(language: previousLanguage) }
     let model = IslandModel()
     model.isLocalFeed = true
     model.connection = .connected
@@ -60,6 +63,9 @@ import ImageIO
 }
 
 @MainActor @Test func idleStaysVisibleUntilCodexExits() {
+    let previousLanguage = L10n.shared.language
+    L10n.shared.configure(language: .zhHans)
+    defer { L10n.shared.configure(language: previousLanguage) }
     let model = IslandModel()
     model.connection = .connected
     model.sessionTitle = "当前会话"
@@ -92,6 +98,9 @@ import ImageIO
 }
 
 @MainActor @Test func titleAndActivityRemainSeparateAndCommandFailurePulsesRed() {
+    let previousLanguage = L10n.shared.language
+    L10n.shared.configure(language: .zhHans)
+    defer { L10n.shared.configure(language: previousLanguage) }
     let model = IslandModel()
     model.connection = .connected
     model.sessionTitle = "编写浮窗"
@@ -106,6 +115,9 @@ import ImageIO
 }
 
 @MainActor @Test func petMotionTracksWorkingWaitingErrorAndIdle() {
+    let previousLanguage = L10n.shared.language
+    L10n.shared.configure(language: .zhHans)
+    defer { L10n.shared.configure(language: previousLanguage) }
     let model = IslandModel()
     model.connection = .connected
     model.summary = .reduce([.running])
@@ -127,6 +139,9 @@ import ImageIO
 }
 
 @MainActor @Test func demoAndExternalSourcesStayVisibleInStatusText() {
+    let previousLanguage = L10n.shared.language
+    L10n.shared.configure(language: .zhHans)
+    defer { L10n.shared.configure(language: previousLanguage) }
     let model = IslandModel()
     model.connection = .connected
     model.summary = .reduce([.running])
@@ -186,6 +201,9 @@ import ImageIO
 }
 
 @MainActor @Test func pendingApprovalOverridesCommandErrorsWithoutInventingASessionTitle() {
+    let previousLanguage = L10n.shared.language
+    L10n.shared.configure(language: .zhHans)
+    defer { L10n.shared.configure(language: previousLanguage) }
     let model = IslandModel()
     model.connection = .connected
     model.sessionTitle = "不确定是否属于该审批的会话"

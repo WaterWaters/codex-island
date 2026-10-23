@@ -33,7 +33,7 @@ struct ConnectionPresentation {
         }
     }
 
-    var title: LocalizedStringResource {
+    @MainActor var title: LocalizedStringResource {
         switch status {
         case .checking: SetupText.resource("connection.checking.title", "正在检查连接")
         case .notInstalled: SetupText.resource("connection.not_installed.title", "未找到 Codex 应用")
@@ -49,7 +49,7 @@ struct ConnectionPresentation {
         }
     }
 
-    var nextStep: LocalizedStringResource {
+    @MainActor var nextStep: LocalizedStringResource {
         switch status {
         case .checking: SetupText.resource("connection.checking.next", "正在检查本机状态。若持续没有结果，可重新同步。")
         case .notInstalled: SetupText.resource("connection.not_installed.next", "请先安装 Codex 桌面应用，打开并登录，然后返回这里重新同步。")

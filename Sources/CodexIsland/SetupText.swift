@@ -1,10 +1,9 @@
 import Foundation
 
-// Stable keys and deferred package-bundle lookup prepare these new surfaces for
-// M2.6. This is not a language selector or a claim of translated app UI.
-enum SetupText {
+// Stable resource keys are resolved at the current display-language boundary.
+@MainActor enum SetupText {
     static func resource(_ key: StaticString, _ value: String.LocalizationValue) -> LocalizedStringResource {
-        LocalizedStringResource(key, defaultValue: value, bundle: .atURL(Bundle.module.bundleURL))
+        LocalizedStringResource(stringLiteral: L10n.value(String(describing: key)))
     }
 
     static var settingsTitle: LocalizedStringResource { resource("settings.window.title", "Codex Island 设置") }
