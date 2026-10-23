@@ -85,6 +85,7 @@ Open the DMG and drag CodexIsland.app to Applications, or unzip the ZIP. Launch 
 - Universal binary architecture checks do not replace real-device validation on Intel or the minimum macOS version.
 - A single event record over 1 MiB still causes limited synchronization. Backoff and manual resynchronization do not bypass it; database-confirmed activity remains available, but question state may be incomplete.
 - Private Codex database/asset formats can change. Complete unread state, remote/cloud chats and full pet-state parity are unsupported.
+- Native gallery rasterization is a separate opt-in desktop integration check; headless Intel rendering is unverified.
 - Approval-button recognition is opt-in and experimental. Fullscreen/Spaces combinations and 30-minute whole-app performance remain under validation.
 - No personal pet images, private session data, or signing credentials are included.
 
