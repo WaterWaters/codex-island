@@ -5,9 +5,10 @@
 ## 0.7.3 本机发布检查
 
 - 已有变更包含来源事件退避、统一 CODEX_HOME、手动重同步、自定义宠物只读加载及品牌 / README 预览整理；不包含应用多语言、首次引导或多屏策略等后续功能。
-- Apple Silicon / macOS 27.0.1 / Swift 6.4 的 Release 测试共 102 项：98 项通过，4 项按条件跳过（3 项本机安装素材检查和 1 项合成性能基准）。
+- Apple Silicon / macOS 27.0.1 / Swift 6.4 的 Release 测试共 103 项：98 项通过，5 项按条件跳过（3 项本机安装素材检查、1 项合成性能基准及 1 项需 Metal 的图库渲染）。渲染测试在加设备条件前已于本机完成八图检查；新条件下当前沙盒未提供 Metal 设备，因此明确跳过。
 - 公开源检查通过：90 个文件、170 个本地 Markdown 链接；Shell 语法和差异空白检查通过。本地开发文档、诊断、个人素材继续被忽略。
 - 0.7.3 build 13 的 arm64 / x86_64 通用应用构建、macOS 14 部署目标检查、deep / strict 签名和 7 文件精确白名单通过，ZIP 已生成。本机 DMG 创建仍报“设备未配置”，由远端发布工作流重新构建并验证最终分发文件。
+- 首次远端 CI 的 macOS 14 任务通过；Intel runner 在原生图库渲染时触发 Metal 设备架构断言。图库渲染测试现按 Metal 设备可用性显式执行 / 跳过，合成模型检查独立且始终运行；该调整不代替 Intel GUI 验收。
 - 本节是提交前的本机检查，远端 CI、版本标签和分发结果以 [Actions](https://github.com/WaterWaters/codex-island/actions) 与 [0.7.3 Release](https://github.com/WaterWaters/codex-island/releases/tag/v0.7.3) 实际记录为准。
 - 单条事件超过 1 MiB 仍会同步受限；手动重同步不能绕过该记录。Developer ID / 公证、最低系统及 Intel 真实 GUI、多屏 / 全屏和 30 分钟整应用性能仍未完成。
 

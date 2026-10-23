@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import ImageIO
 import IslandCore
+import Metal
 import Testing
 @testable import CodexIsland
 
@@ -39,7 +40,11 @@ import Testing
     #expect(transparent > area / 4) // No opaque app-icon tile in the menu.
 }
 
-@MainActor @Test func galleryRendersEightDistinctSyntheticNativeViews() throws {
+// SwiftUI blur/shadow rasterization needs Metal. Headless Intel runners can
+// compile the app but have no GPU; keep model coverage independent below.
+@MainActor @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil,
+                         "Native preview rendering requires a Metal device"))
+func galleryRendersEightDistinctSyntheticNativeViews() throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent("island-gallery-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: directory) }
     try PreviewRenderer.renderGallery(to: directory)
@@ -54,6 +59,9 @@ import Testing
         images.insert(data)
     }
     #expect(images.count == 8)
+}
+
+@MainActor @Test func galleryModelsUseOnlySyntheticPausedStates() {
     for state in [WorkState.running, .needsInput, .blocked, .idle] {
         let model = PreviewRenderer.sampleModel(state: state)
         #expect(model.isDemo && model.animationsPaused)

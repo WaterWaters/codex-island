@@ -6,7 +6,7 @@
 
 The macOS checks workflow runs for pushes to main, pull requests, and manual dispatch. Its matrix covers the macOS 14 Apple Silicon runner and the macOS 15 Intel runner. Each job checks public files and documentation links, validates script syntax, runs the fixture-based tests, builds a native Release app, and verifies its signature.
 
-Hosted-runner unit tests do not replace real desktop validation of approvals, Spaces, displays, or long-duration performance. No real chats, personal images, or signing credentials are required.
+Hosted-runner unit tests do not replace real desktop validation of approvals, Spaces, displays, or long-duration performance. No real chats, personal images, or signing credentials are required. The native gallery rasterization test requires a Metal device and explicitly skips on runners without one; synthetic gallery model checks still run there.
 
 ## Preview release workflow
 
