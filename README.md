@@ -66,6 +66,8 @@ open build/CodexIsland.app
 
 The app appears in your menu bar. While Codex is running, the island stays visible even when idle; it hides when Codex exits. Show or hide it manually from the menu bar.
 
+Source builds after v0.7.3 add a skippable first-use guide and General / Appearance / Connection / Experimental settings. The Connection tab explains the next step and can copy redacted diagnostics. These additions are not in the v0.7.3 download. [First-use and connection guide](docs/getting-started.md).
+
 > [!NOTE]
 > The current package is signed ad hoc for local use and is not notarized. It builds for your current CPU architecture. Apple Silicon with Swift 6.4 has been tested; macOS 14 and Intel runtime validation are still pending.
 

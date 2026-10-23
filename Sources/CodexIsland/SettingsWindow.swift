@@ -7,12 +7,14 @@ private typealias SettingState<Value> = SwiftUI.State<Value>
 @MainActor
 final class SettingsWindowController {
     private let window: NSWindow
-    init(model: IslandModel, refreshPets: @escaping @MainActor () -> Void, openCodex: @escaping @MainActor () -> Void) {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 510, height: 680),
+    init(model: IslandModel, refreshPets: @escaping @MainActor () -> Void, openCodex: @escaping @MainActor () -> Void,
+         refreshStatus: @escaping @MainActor () -> Void, reviewOnboarding: @escaping @MainActor () -> Void) {
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 680),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = "Codex Island 设置"
+        window.title = String(localized: SetupText.settingsTitle)
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: IslandSettingsView(model: model, refreshPets: refreshPets, openCodex: openCodex))
+        window.contentView = NSHostingView(rootView: IslandSettingsView(model: model, refreshPets: refreshPets,
+            openCodex: openCodex, refreshStatus: refreshStatus, reviewOnboarding: reviewOnboarding))
         window.center()
     }
     func show() {
@@ -26,9 +28,10 @@ private struct IslandSettingsView: View {
     let model: IslandModel
     let refreshPets: @MainActor () -> Void
     let openCodex: @MainActor () -> Void
+    let refreshStatus: @MainActor () -> Void
+    let reviewOnboarding: @MainActor () -> Void
 
     var body: some View {
-        @Bindable var preferences = model.preferences
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 if let icon = BrandAssets.colorIcon {
@@ -44,58 +47,16 @@ private struct IslandSettingsView: View {
                     Image(decorative: frame, scale: 2).resizable().scaledToFit().frame(width: 56, height: 60)
                 }
             }.padding(22)
-            Form {
-                Section("岛与显示") {
-                    Toggle("显示岛", isOn: $preferences.values.isVisible)
-                    LabeledContent("岛高度", value: "\(Int(preferences.values.contentHeight)) pt")
-                    Slider(value: $preferences.values.contentHeight, in: 60...140, step: 2)
-                        .accessibilityLabel("岛高度")
-                    Text("调整刘海下方的内容高度，修改即时生效。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                Section("宠物") {
-                    if model.pets.pets.isEmpty {
-                        Text("尚未找到可用宠物").foregroundStyle(.secondary)
-                    } else {
-                        Picker("岛上的宠物", selection: $preferences.values.selectedPetID) {
-                            ForEach(model.pets.pets) { pet in Text(verbatim: pet.name).tag(pet.id) }
-                        }
-                    }
-                    HStack {
-                        Text(model.pets.statusMessage).font(.caption).foregroundStyle(.secondary)
-                        Spacer()
-                        if model.pets.isLoading { ProgressView().controlSize(.small) }
-                        Button("重新同步", action: refreshPets).disabled(model.pets.isLoading)
-                    }
-                    Text("支持 Codex 内置、本地自定义和已缓存的云端宠物。只切换岛的宠物，不修改 Codex。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                Section("灯光与动态") {
-                    IslandColorRow(title: "霓虹主色", hex: $preferences.values.neonPrimary)
-                    IslandColorRow(title: "霓虹辅色", hex: $preferences.values.neonSecondary)
-                    IslandColorRow(title: "需要介入 · 脉冲", hex: $preferences.values.inputPulse)
-                    IslandColorRow(title: "发生错误 · 脉冲", hex: $preferences.values.errorPulse)
-                    Toggle("播放动态效果", isOn: $preferences.values.animationsEnabled)
-                }
-                Section("临时穿透") {
-                    Text("中键单击岛后，岛会半透明，30 秒内点击可穿过岛。菜单栏也可以启动穿透或提前恢复交互。")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
-                Section("审批窗口识别 · 可选") {
-                    Toggle("读取 Codex 的审批按钮", isOn: Binding(get: {
-                        preferences.values.approvalRecognitionEnabled == true
-                    }, set: { enabled in
-                        preferences.values.approvalRecognitionEnabled = enabled
-                        if enabled && !ApprovalAccess.isTrusted { ApprovalAccess.request() }
-                    }))
-                    Text("需要 macOS 辅助功能权限。该权限具备读取和控制界面的能力；本工具仅检查 Codex 的按钮标签，不执行点击，不保存聊天内容。")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text(model.approvalAccessMessage).font(.caption).foregroundStyle(.secondary)
-                    Button("打开辅助功能设置", action: ApprovalAccess.openSettings)
-                    Text("仅识别已显示的审批卡片；未显示、最小化或其他语言的请求可能无法识别。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }.formStyle(.grouped)
+            TabView {
+                GeneralSettingsView(model: model, reviewOnboarding: reviewOnboarding)
+                    .tabItem { Label { Text(SetupText.general) } icon: { Image(systemName: "gearshape") } }
+                AppearanceSettingsView(model: model, refreshPets: refreshPets)
+                    .tabItem { Label { Text(SetupText.appearance) } icon: { Image(systemName: "paintpalette") } }
+                ConnectionSettingsView(model: model, refreshStatus: refreshStatus, openCodex: openCodex)
+                    .tabItem { Label { Text(SetupText.connection) } icon: { Image(systemName: "link") } }
+                ExperimentalSettingsView(model: model)
+                    .tabItem { Label { Text(SetupText.experiments) } icon: { Image(systemName: "flask") } }
+            }.padding(.horizontal, 12)
             Divider()
             HStack {
                 Button("恢复默认") { model.preferences.reset() }
@@ -104,9 +65,96 @@ private struct IslandSettingsView: View {
                 Button("退出") { NSApp.terminate(nil) }
             }.padding(16)
         }
-        .frame(width: 510, height: 680)
+        .frame(width: 580, height: 680)
     }
 
+}
+
+private struct GeneralSettingsView: View {
+    let model: IslandModel
+    let reviewOnboarding: @MainActor () -> Void
+
+    var body: some View {
+        @Bindable var preferences = model.preferences
+        Form {
+            Section {
+                Toggle("显示岛", isOn: $preferences.values.isVisible)
+                Text(SetupText.resource("settings.general.menu_hint", "隐藏后仍可通过菜单栏水猫图标恢复岛、进入设置或退出。"))
+                    .font(.caption).foregroundStyle(.secondary)
+                Button(action: reviewOnboarding) { Text(SetupText.reviewGuide) }
+            }
+            Section("临时穿透") {
+                Text("中键单击岛后，岛会半透明，30 秒内点击可穿过岛。菜单栏也可以启动穿透或提前恢复交互。")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+        }.formStyle(.grouped)
+    }
+}
+
+private struct AppearanceSettingsView: View {
+    let model: IslandModel
+    let refreshPets: @MainActor () -> Void
+
+    var body: some View {
+        @Bindable var preferences = model.preferences
+        Form {
+            Section("岛与显示") {
+                LabeledContent("岛高度", value: "\(Int(preferences.values.contentHeight)) pt")
+                Slider(value: $preferences.values.contentHeight, in: 60...140, step: 2)
+                    .accessibilityLabel("岛高度")
+                Text("调整刘海下方的内容高度，修改即时生效。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("宠物") {
+                if model.pets.pets.isEmpty {
+                    Text("尚未找到可用宠物").foregroundStyle(.secondary)
+                } else {
+                    Picker("岛上的宠物", selection: $preferences.values.selectedPetID) {
+                        ForEach(model.pets.pets) { pet in Text(verbatim: pet.name).tag(pet.id) }
+                    }
+                }
+                HStack {
+                    Text(model.pets.statusMessage).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if model.pets.isLoading { ProgressView().controlSize(.small) }
+                    Button("重新同步", action: refreshPets).disabled(model.pets.isLoading)
+                }
+                Text("支持 Codex 内置、本地自定义和已缓存的云端宠物。只切换岛的宠物，不修改 Codex。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("灯光与动态") {
+                IslandColorRow(title: "霓虹主色", hex: $preferences.values.neonPrimary)
+                IslandColorRow(title: "霓虹辅色", hex: $preferences.values.neonSecondary)
+                IslandColorRow(title: "需要介入 · 脉冲", hex: $preferences.values.inputPulse)
+                IslandColorRow(title: "发生错误 · 脉冲", hex: $preferences.values.errorPulse)
+                Toggle("播放动态效果", isOn: $preferences.values.animationsEnabled)
+            }
+        }.formStyle(.grouped)
+    }
+}
+
+private struct ExperimentalSettingsView: View {
+    let model: IslandModel
+
+    var body: some View {
+        @Bindable var preferences = model.preferences
+        Form {
+            Section("审批窗口识别 · 可选") {
+                Toggle("读取 Codex 的审批按钮", isOn: Binding(get: {
+                    preferences.values.approvalRecognitionEnabled == true
+                }, set: { enabled in
+                    preferences.values.approvalRecognitionEnabled = enabled
+                    if enabled && !ApprovalAccess.isTrusted { ApprovalAccess.request() }
+                }))
+                Text("需要 macOS 辅助功能权限。该权限具备读取和控制界面的能力；本工具仅检查 Codex 的按钮标签，不执行点击，不保存聊天内容。")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(model.approvalAccessMessage).font(.caption).foregroundStyle(.secondary)
+                Button("打开辅助功能设置", action: ApprovalAccess.openSettings)
+                Text("仅识别已显示的审批卡片；未显示、最小化或其他语言的请求可能无法识别。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }.formStyle(.grouped)
+    }
 }
 
 private struct IslandColorRow: View {

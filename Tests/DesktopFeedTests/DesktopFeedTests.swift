@@ -575,7 +575,7 @@ func syntheticFeedPerformance() async throws {
                  Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15))
 }
 
-private final class Fixture {
+final class Fixture {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("island-feed-test-\(UUID().uuidString)")
     init() throws {
         try FileManager.default.createDirectory(at: root.appendingPathComponent("sessions"), withIntermediateDirectories: true)

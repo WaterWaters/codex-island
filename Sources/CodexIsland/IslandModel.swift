@@ -4,7 +4,7 @@ import IslandCore
 import Observation
 
 enum ConnectionState: Equatable {
-    case connecting, connected, unsupported, unavailable, appNotRunning
+    case connecting, connected, unsupported, unavailable, appNotRunning, appNotInstalled, missingLocalData
 }
 
 @MainActor @Observable
@@ -16,6 +16,8 @@ final class IslandModel {
     var approvalAccessMessage = "审批窗口识别未开启"
     var connection: ConnectionState = .connecting
     var localFeedHealth: FeedHealth?
+    var sourceFailureReason: SourceFailureReason?
+    var codexVersion: String?
     var summary = ActivitySummary.reduce([])
     var sessionTitle: String?
     var activity: SessionActivity?
@@ -50,6 +52,8 @@ final class IslandModel {
         case .unsupported: "暂无法同步"
         case .unavailable: "状态暂不可用"
         case .appNotRunning: "Codex 未运行"
+        case .appNotInstalled: String(localized: SetupText.resource("connection.not_installed.detail", "未找到 Codex"))
+        case .missingLocalData: String(localized: SetupText.resource("connection.missing_data.detail", "等待本机数据"))
         }
     }
 
@@ -77,12 +81,22 @@ final class IslandModel {
     var shouldShow: Bool {
         if !preferences.values.isVisible { return false }
         if isDemo { return true }
-        if connection == .appNotRunning { return false }
+        if connection == .appNotRunning || connection == .appNotInstalled { return false }
         return true
     }
 
     var accessibilityDescription: String {
         [title, displayDetail, sourceBadge, "宠物\(pets.displayName)", isClickThrough ? "临时穿透中" : nil,
          connection == .connected && !approvalUIIsPending ? summary.detail : nil, "打开 Codex"].compactMap { $0 }.joined(separator: "，")
+    }
+
+    var connectionPresentation: ConnectionPresentation {
+        ConnectionPresentation(connection: connection, health: localFeedHealth, isDemo: isDemo, isExternal: isExternalFeed)
+    }
+
+    var privacyDiagnostics: PrivacyDiagnostics {
+        PrivacyDiagnostics(islandVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+            codexVersion: codexVersion, presentation: connectionPresentation, reason: sourceFailureReason,
+            health: localFeedHealth, isDemo: isDemo, isExternal: isExternalFeed)
     }
 }

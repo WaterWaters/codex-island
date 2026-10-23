@@ -63,6 +63,8 @@ A native macOS status island for local Codex sessions, with activity, recognized
 
 ### Changes
 
+- Add a skippable, repeatable first-use guide and grouped settings with actionable connection status, manual resynchronization, and redacted diagnostic copying.
+- Validate large events incrementally without retaining full tool output, question titles, or answers; preserve question semantics and bounded parsing budgets.
 - Discover local custom pets and cloud pets already cached by Codex, load their names and animation, and preserve the selection across restarts. No network requests or personal images are bundled.
 - Preserve loaded pets when their source is temporarily unavailable; migrate the former system-icon selection to the built-in Codex pet.
 - Retry failed session events with bounded backoff, expose limited synchronization, and add manual status resynchronization.
@@ -83,7 +85,7 @@ Open the DMG and drag CodexIsland.app to Applications, or unzip the ZIP. Launch 
 
 - Ad-hoc signed, **not Developer ID signed or notarized**. macOS may block an unidentified developer; build from source if you prefer.
 - Universal binary architecture checks do not replace real-device validation on Intel or the minimum macOS version.
-- A single event record over 1 MiB still causes limited synchronization. Backoff and manual resynchronization do not bypass it; database-confirmed activity remains available, but question state may be incomplete.
+- Event parsing validates large records incrementally and retains a bounded state/question projection. Malformed records or structure/semantic budget limits still cause limited synchronization; incomplete question state is not treated as complete.
 - Private Codex database/asset formats can change. Complete unread state, remote/cloud chats and full pet-state parity are unsupported.
 - Native gallery rasterization is a separate opt-in desktop integration check; headless Intel rendering is unverified.
 - Approval-button recognition is opt-in and experimental. Fullscreen/Spaces combinations and 30-minute whole-app performance remain under validation.

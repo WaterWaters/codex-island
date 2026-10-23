@@ -32,7 +32,7 @@ public struct FeedObservation: Sendable {
 }
 
 /// Select title and activity metadata only; messages, credentials and tool
-/// argument contents never enter the feed. Each read reopens SQLite read-only so file
+/// argument contents never leave the bounded signal parser. Each read reopens SQLite read-only so file
 /// replacement and Codex restarts cannot leave a stale database handle alive.
 public actor LocalSessionFeed {
     private let configuration: Result<FeedConfiguration, FeedError>
@@ -255,7 +255,7 @@ private struct RolloutCursor {
     private var turnID: String?
     private var fileID: UInt64?
     private var offset: UInt64 = 0
-    private var pending = Data()
+    private var projection = RolloutJSONLProjection()
     private(set) var signals = RolloutSignals()
     private(set) var caughtUp = false
 
@@ -270,24 +270,19 @@ private struct RolloutCursor {
             turnID = row.turnID
             fileID = inode
             offset = row.offset
-            pending.removeAll()
+            projection = RolloutJSONLProjection()
             signals = RolloutSignals()
         }
         guard offset <= size else { throw FeedError.invalidRollout }
         let handle = try FileHandle(forReadingFrom: path)
         defer { try? handle.close() }
         try handle.seek(toOffset: offset)
-        let data = try handle.read(upToCount: 262_144) ?? Data()
+        let data = try handle.read(upToCount: RolloutJSONLProjection.readBudget) ?? Data()
         offset += UInt64(data.count)
-        pending.append(data)
-        while let newline = pending.firstIndex(of: 10) {
-            let line = Data(pending[..<newline])
-            pending.removeSubrange(...newline)
-            guard line.count <= 1_048_576 else { throw FeedError.oversized }
-            try signals.consume(line, turnID: row.turnID)
+        try projection.consume(data) { line in
+            try signals.consumeProjected(line, turnID: row.turnID)
         }
-        guard pending.count <= 1_048_576 else { throw FeedError.oversized }
-        caughtUp = offset == size && pending.isEmpty
+        caughtUp = offset == size && !projection.hasPartialRecord
     }
 }
 
@@ -309,6 +304,13 @@ public struct RolloutSignals: Sendable {
     public init() {}
 
     public mutating func consume(_ line: Data, turnID: String) throws {
+        let projected = try RolloutJSONLProjection.document(line)
+        var next = self
+        try next.consumeProjected(projected, turnID: turnID)
+        self = next
+    }
+
+    mutating func consumeProjected(_ line: Data, turnID: String) throws {
         let decoder = JSONDecoder()
         let event = try decoder.decode(Event.self, from: line)
         guard let payload = event.payload else { return }
@@ -323,6 +325,7 @@ public struct RolloutSignals: Sendable {
         if type == "message", payload.role == "user" {
             let message = try decoder.decode(Envelope<UserMessage>.self, from: line).payload
             for part in message.content where part.type == "input_text" {
+                try part.checkProjection()
                 guard let text = part.text else { continue }
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 let start = "<send_user_message_question_reply>", end = "</send_user_message_question_reply>"
@@ -345,6 +348,7 @@ public struct RolloutSignals: Sendable {
                 try checkCapacity(for: callID)
                 pendingCalls.insert(callID)
             } else if Self.asyncNames.contains(payload.name ?? "") {
+                try payload.checkProjection("arguments")
                 let arguments = try decoder.decode(Envelope<Arguments>.self, from: line).payload.arguments
                 if let data = arguments?.data(using: .utf8),
                    let questions = try? decoder.decode(Questions.self, from: data),
@@ -356,6 +360,7 @@ public struct RolloutSignals: Sendable {
         } else if type == "function_call_output" {
             pendingCalls.remove(callID)
             if var question = asyncQuestions[callID] {
+                try payload.checkProjection("output")
                 let output = try decoder.decode(Envelope<Output>.self, from: line).payload.output
                 if let data = output?.data(using: .utf8),
                    let result = try? decoder.decode(Acceptance.self, from: data), result.accepted {
@@ -385,7 +390,14 @@ public struct RolloutSignals: Sendable {
     private struct Acceptance: Decodable { let accepted: Bool }
     private struct UserMessage: Decodable {
         let content: [Part]
-        struct Part: Decodable { let type: String?; let text: String? }
+        struct Part: Decodable {
+            let type: String?
+            let text: String?
+            let _island_projection_text_failure: String?
+            func checkProjection() throws {
+                if let failure = _island_projection_text_failure { throw FeedError(rawValue: failure) ?? .invalidRollout }
+            }
+        }
     }
     private struct QuestionReply: Decodable { let questionItemId: String }
     private struct QuestionID: Decodable {
@@ -409,6 +421,12 @@ public struct RolloutSignals: Sendable {
             let call_id: String?
             let turn_id: String?
             let role: String?
+            let _island_projection_arguments_failure: String?
+            let _island_projection_output_failure: String?
+            func checkProjection(_ field: String) throws {
+                let failure = field == "arguments" ? _island_projection_arguments_failure : _island_projection_output_failure
+                if let failure { throw FeedError(rawValue: failure) ?? .invalidRollout }
+            }
         }
     }
 }

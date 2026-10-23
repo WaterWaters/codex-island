@@ -11,9 +11,15 @@ struct Options {
     var help = false
     var renderPath: URL?
     var galleryPath: URL?
+    private var isPreviewBundle = false
 
-    init(arguments: [String]) throws {
-        if arguments.isEmpty, let value = Bundle.main.object(forInfoDictionaryKey: "CodexIslandPreviewState") as? String {
+    var permitsPersistentChanges: Bool {
+        demo == nil && statusFile == nil && !diagnose && !help && renderPath == nil && galleryPath == nil && !isPreviewBundle
+    }
+
+    init(arguments: [String], previewState: String? = Bundle.main.object(forInfoDictionaryKey: "CodexIslandPreviewState") as? String) throws {
+        isPreviewBundle = previewState.flatMap(WorkState.init(rawValue:)) != nil
+        if arguments.isEmpty, let value = previewState {
             demo = WorkState(rawValue: value)
         }
         var index = 0
@@ -51,13 +57,15 @@ struct Options {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let options: Options
-    private let model = IslandModel(preferences: IslandPreferences(defaults: .standard))
+    private let model: IslandModel
+    private let onboardingProgress: OnboardingProgress
     private let launcher = CodexLauncher()
     private var panel: IslandPanelController?
     private var pollTask: Task<Void, Never>?
     private var petTask: Task<Void, Never>?
     private var menuBar: MenuBarController?
     private var settingsWindow: SettingsWindowController?
+    private var onboardingWindow: OnboardingWindowController?
     private var requestedPetID: String?
     private let approvalObserver = ApprovalUIObserver()
     private var gate = SnapshotGate()
@@ -69,6 +77,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     init(options: Options) {
         self.options = options
+        let defaults: UserDefaults? = options.permitsPersistentChanges ? .standard : nil
+        model = IslandModel(preferences: IslandPreferences(defaults: defaults))
+        onboardingProgress = OnboardingProgress(defaults: defaults,
+            permitsAutomaticPresentation: options.permitsPersistentChanges)
         if let state = options.demo { source = DemoStatusSource(state: state) }
         else if let url = options.statusFile { source = SnapshotFileSource(url: url) }
         else { source = DesktopStatusSource() }
@@ -102,6 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         synchronizePets(force: false)
         observeSystem()
         startPolling()
+        if onboardingProgress.shouldPresentAutomatically { showOnboarding() }
     }
 
     private func startPolling() {
@@ -126,7 +139,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if options.demo == nil && options.statusFile == nil && launcher.runningApplication == nil {
             await source.reset()
             guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
-            model.connection = .appNotRunning
+            model.connection = launcher.applicationURL == nil ? .appNotInstalled : .appNotRunning
+            model.sourceFailureReason = nil
             model.sessionTitle = nil
             model.activity = nil
             model.approvalUIIsPending = false
@@ -142,6 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if model.sessionTitle != title { model.sessionTitle = title }
                     if model.activity != snapshot.activity { model.activity = snapshot.activity }
                     model.connection = .connected
+                    model.sourceFailureReason = nil
                     model.localFeedHealth = health
                 } catch {
                     if model.connection != .unavailable {
@@ -149,15 +164,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         logger.error("Status snapshot rejected: \(String(describing: error), privacy: .public)")
                     }
                     model.connection = .unavailable
+                    model.sourceFailureReason = .snapshotRejected
                 }
-            case .unsupported: model.connection = .unsupported
-            case .unavailable: model.connection = .unavailable
+            case .unsupported:
+                model.connection = .unsupported
+                model.sourceFailureReason = .incompatibleSchema
+            case .missingLocalData:
+                model.connection = .missingLocalData
+                model.sourceFailureReason = .missingDatabase
+            case .unavailable:
+                model.connection = .unavailable
+                model.sourceFailureReason = .sourceUnavailable
+            case .failure(let reason):
+                model.connection = .unavailable
+                model.sourceFailureReason = reason
             }
         }
         if model.connection != .connected {
             model.localFeedHealth = nil
             model.summary = .reduce([])
             model.activity = nil
+            model.sessionTitle = nil
         }
         if options.demo == nil && options.statusFile == nil,
            model.preferences.values.approvalRecognitionEnabled == true,
@@ -195,6 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let generation = sourceGeneration
         pollTask?.cancel()
         model.localFeedHealth = nil
+        model.sourceFailureReason = nil
         model.approvalUIIsPending = false
         model.connection = .connecting
         render()
@@ -227,6 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let selection = model.preferences.values.selectedPetID
         requestedPetID = selection
         let applicationURL = launcher.applicationURL
+        model.codexVersion = applicationURL.flatMap(Bundle.init(url:))?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         petTask = Task { [weak self] in
             guard let self else { return }
             let success = await model.pets.synchronize(applicationURL: applicationURL, selectedID: selection, force: force)
@@ -242,9 +271,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showSettings() {
         if settingsWindow == nil {
             settingsWindow = SettingsWindowController(model: model, refreshPets: { [weak self] in self?.synchronizePets(force: true) },
-                                                       openCodex: { [weak self] in self?.openCodex() })
+                openCodex: { [weak self] in self?.openCodex() },
+                refreshStatus: { [weak self] in self?.resynchronizeStatus() },
+                reviewOnboarding: { [weak self] in self?.showOnboarding() })
         }
         settingsWindow?.show()
+    }
+
+    private func showOnboarding() {
+        onboardingWindow?.close()
+        onboardingWindow = OnboardingWindowController(model: model, progress: onboardingProgress,
+            refreshStatus: { [weak self] in self?.resynchronizeStatus() },
+            openCodex: { [weak self] in self?.openCodex() })
+        onboardingWindow?.show()
     }
 
     private func openCodex() {
@@ -326,6 +365,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.preferences.onChange = nil
         menuBar?.close()
         settingsWindow?.close()
+        onboardingWindow?.close()
         panel?.close()
         for observer in observers {
             NotificationCenter.default.removeObserver(observer)

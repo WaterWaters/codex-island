@@ -8,6 +8,8 @@ enum SourceReading: Sendable {
     case snapshot(ActivitySnapshot, health: FeedHealth? = nil)
     case unsupported
     case unavailable
+    case missingLocalData
+    case failure(SourceFailureReason)
 }
 
 protocol StatusSource: Sendable {
@@ -21,10 +23,13 @@ extension StatusSource {
 
 /// Compatibility source with an explicit local-history scope, not pet parity.
 actor DesktopStatusSource: StatusSource {
-    private let feed = LocalSessionFeed()
+    private let feed: LocalSessionFeed
     private let logger = Logger(subsystem: "dev.water.codex-island", category: "StatusSource")
     private var lastFailure: String?
     private var eventsDegraded = false
+
+    init(feed: LocalSessionFeed = LocalSessionFeed()) { self.feed = feed }
+
     func read() async -> SourceReading {
         do {
             let observation = try await feed.read()
@@ -43,8 +48,9 @@ actor DesktopStatusSource: StatusSource {
             if lastFailure != reason { logger.error("Local status read failed: \(reason, privacy: .public)") }
             lastFailure = reason
             switch error as? FeedError {
-            case .missingDatabase, .incompatibleSchema: return .unsupported
-            default: return .unavailable
+            case .missingDatabase: return .missingLocalData
+            case .incompatibleSchema: return .unsupported
+            default: return .failure(SourceFailureReason(error: error))
             }
         }
     }

@@ -8,6 +8,7 @@ Choose a guide below. The README overview is available in four languages; most d
 
 | Guide | What you will find | Language |
 | --- | --- | --- |
+| [First-use and connection guide](getting-started.md) | Onboarding, grouped settings, recovery actions, and redacted diagnostics in unreleased source | 简体中文 |
 | [Local session source](local-session-source.md) | Read scope, state mapping, compatibility, and diagnostics | 简体中文 |
 | [Pet animation](pet-animation.md) | Runtime assets, timing, fallback, and animation behavior | 简体中文 |
 | [Native state previews](assets/previews/README.md) | Eight state/display examples and reproducible native rendering | English |

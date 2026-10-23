@@ -77,7 +77,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         countdownItem = add("", to: menu, action: #selector(changeClickThrough))
         updateCountdown()
         menu.addItem(.separator())
-        add("外观与设置…", to: menu, action: #selector(settings), key: ",")
+        add(String(localized: SetupText.settingsMenu), to: menu, action: #selector(settings), key: ",")
         add("重新同步状态", to: menu, action: #selector(syncStatus))
         add("重新同步宠物与时长", to: menu, action: #selector(syncPets)).isEnabled = !model.pets.isLoading
         menu.addItem(.separator())
