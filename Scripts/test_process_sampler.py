@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -72,6 +73,11 @@ class ProcessSamplerTests(unittest.TestCase):
             self.assertEqual(first["cpuTimeUnits"], "nanoseconds")
             self.assertGreater(first["machTimebaseNumer"], 0)
             self.assertGreater(first["machTimebaseDenom"], 0)
+            energies = [row["taskEnergyNanojoules"] for row in rows]
+            for energy in energies:
+                self.assertTrue(energy is None or (type(energy) is int and energy >= 0))
+            available = [energy for energy in energies if energy is not None]
+            self.assertTrue(all(a <= b for a, b in zip(available, available[1:])))
         finally:
             for process in (sampler, child):
                 if process is not None and process.poll() is None:
@@ -85,6 +91,20 @@ class ProcessSamplerTests(unittest.TestCase):
                     for stream in (process.stdin, process.stdout, process.stderr):
                         if stream is not None:
                             stream.close()
+
+    def test_v4_only_build_preserves_counters_with_unavailable_task_energy(self):
+        with tempfile.TemporaryDirectory(prefix="island-sampler-v4-") as folder:
+            binary = Path(folder) / "island-sample-v4"
+            subprocess.run(["xcrun", "clang", "-O2", "-Wall", "-Wextra", "-Werror",
+                            "-DISLAND_SAMPLER_DISABLE_V6", str(ROOT / "Scripts/sample_process.c"),
+                            "-o", str(binary)], check=True)
+            result = subprocess.run([str(binary), str(os.getpid()), "1", "1"],
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rows = [json.loads(line) for line in result.stdout.splitlines()]
+            self.assertGreaterEqual(len(rows), 2)
+            self.assertTrue(all(row["taskEnergyNanojoules"] is None for row in rows))
+            self.assertTrue(all(row["cpuTimeUnits"] == "nanoseconds" for row in rows))
 
 def main():
     parser = argparse.ArgumentParser()

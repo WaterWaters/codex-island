@@ -69,15 +69,26 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Process counters unavailable (%s). No observation completed.\n", strerror(errno));
             return 1;
         }
+        // V4 billed energy is a separate bank-accounting counter. Recount's
+        // V6 field explicitly reports task CPU energy in nanojoules; older
+        // SDKs/kernels retain the V4 sample with an unavailable energy value.
+        char energy_nj[32] = "null";
+#if defined(RUSAGE_INFO_V6) && !defined(ISLAND_SAMPLER_DISABLE_V6)
+        struct rusage_info_v6 energy_info = {0};
+        if (proc_pid_rusage((int)pid, RUSAGE_INFO_V6, (rusage_info_t *)&energy_info) == 0) {
+            snprintf(energy_nj, sizeof(energy_nj), "%" PRIu64, energy_info.ri_energy_nj);
+        }
+#endif
         double elapsed = monotonic_seconds() - start;
         printf("{\"elapsedSeconds\":%.3f,\"userNanoseconds\":%" PRIu64
                ",\"systemNanoseconds\":%" PRIu64 ",\"physicalBytes\":%" PRIu64
                ",\"residentBytes\":%" PRIu64 ",\"interruptWakeups\":%" PRIu64
                ",\"packageIdleWakeups\":%" PRIu64 ",\"billedEnergyCounter\":%" PRIu64
-               ",\"cpuTimeUnits\":\"nanoseconds\",\"machTimebaseNumer\":%" PRIu32 ",\"machTimebaseDenom\":%" PRIu32 "}\n",
+               ",\"cpuTimeUnits\":\"nanoseconds\",\"machTimebaseNumer\":%" PRIu32 ",\"machTimebaseDenom\":%" PRIu32
+               ",\"taskEnergyNanojoules\":%s}\n",
                elapsed, nanoseconds(info.ri_user_time, timebase), nanoseconds(info.ri_system_time, timebase),
                info.ri_phys_footprint, info.ri_resident_size, info.ri_interrupt_wkups, info.ri_pkg_idle_wkups,
-               info.ri_billed_energy, timebase.numer, timebase.denom);
+               info.ri_billed_energy, timebase.numer, timebase.denom, energy_nj);
         fflush(stdout);
         if (elapsed >= duration) break;
         double remaining = duration - elapsed;

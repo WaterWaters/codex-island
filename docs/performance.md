@@ -54,14 +54,16 @@ v0.7.2 之后的源码对坏 JSONL / 超长行 / 事件 I/O 失败增加按会�
 
 ## 整应用聚合采样工具
 
-未发布源码提供 `Scripts/sample_process.c`，基于系统 `proc_pid_rusage` v4 计数，不读取命令行、会话、路径或堆栈。对已经确认的应用 PID 执行：
+未发布源码提供 `Scripts/sample_process.c`，基于系统 `proc_pid_rusage` v4 计数，并在 SDK / 内核支持时读取 v6 任务 CPU 能耗；不读取命令行、会话、路径或堆栈。对已经确认的应用 PID 执行：
 
 ```bash
 xcrun clang -O2 -Wall -Wextra -Werror Scripts/sample_process.c -o /tmp/island-sample
 /tmp/island-sample APP_PID 1800 10 > /private/tmp/island-private-samples.jsonl
 ```
 
-输出包含单调墙钟、累积 user/system CPU 纳秒、physical footprint/RSS 字节、interrupt/package-idle 唤醒及系统 billed-energy 原始计数。CPU 从 proc_pid_rusage 的 Mach 刻度按本机 mach_timebase_info 转换，JSON 同时记录换算比例；不能直接把原始刻度当纳秒。采样器须以本机架构编译运行：Rosetta 的虚拟时基与系统进程计数不同，因此转换执行会明确失败且不输出样本；无需关闭 Rosetta 或改变目标应用。首尾相减得窗口增量；CPU 百分比以增量 CPU 秒除墙钟秒 ×100，100% 表示一个 CPU 核。能耗计数不当作焦耳或活动监视器 Energy Impact；不可读或始终为零时标记无法取得，不推断零能耗。原始样本仅留本机，不进入 Git 或应用包。
+输出包含单调墙钟、累积 user/system CPU 纳秒、physical footprint/RSS 字节、interrupt/package-idle 唤醒及系统 billed-energy 原始计数。CPU 从 proc_pid_rusage 的 Mach 刻度按本机 mach_timebase_info 转换，JSON 同时记录换算比例；不能直接把原始刻度当纳秒。采样器须以本机架构编译运行：Rosetta 的虚拟时基与系统进程计数不同，因此转换执行会明确失败且不输出样本；无需关闭 Rosetta 或改变目标应用。首尾相减得窗口增量；CPU 百分比以增量 CPU 秒除墙钟秒 ×100，100% 表示一个 CPU 核。原始样本仅留本机，不进入 Git 或应用包。
+
+`billedEnergyCounter` 保留为原始 bank 计数，不当作焦耳。独立字段 `taskEnergyNanojoules` 来自 v6 的 `ri_energy_nj`，单位由 Apple 的 [Recount 说明](https://github.com/apple-oss-distributions/xnu/blob/main/doc/observability/recount.md) 和 [内核赋值路径](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/bsd_kern.c) 确认：这是任务 CPU 资源核算，可将窗口差除以 10⁹ 换算为焦耳，不能当成整机 / GPU 功耗或活动监视器 Energy Impact。SDK 未定义 v6 或内核读取失败时输出 `null`，其余 v4 指标仍可用；始终为零时也不推断零能耗。未提高应用 macOS 14 基线。
 
 分别观察 idle、running、needsInput、关闭动画、隐藏、Codex关闭；记录同一 PID 的初期 / 稳态 / 末期与屏幕是否遮挡。演示 UI 不包含真实磁盘来源，合成来源也不代表真实 Codex 工作日使用。该工具本身与短时 smoke 不能替代 30 分钟 / 工作日完成证据。
 
@@ -71,4 +73,4 @@ xcrun clang -O2 -Wall -Wextra -Werror Scripts/sample_process.c -o /tmp/island-sa
 python3 Scripts/test_process_sampler.py
 ```
 
-该检查只启动一个临时CPU工作子进程，把采样器的CPU增量与子进程自身的POSIX process_time_ns对照，另外验证参数与真实间隔。旧实现直接输出Mach刻度，在本机125/3时基下将CPU低估约41.67倍；修复前校准明确失败，修复后通过。早期未校准smoke的CPU百分比无效，不用于性能预算。持续采样若仍使用旧二进制，必须保留原始计数和时基另行换算，不能混用新旧单位。
+该检查启动临时CPU工作子进程，把采样器的CPU增量与子进程自身的POSIX process_time_ns对照，另外验证参数、真实间隔、可选能耗计数类型 / 单调性和只启用 v4 的兼容构建。旧实现直接输出Mach刻度，在本机125/3时基下将CPU低估约41.67倍；修复前校准明确失败，修复后通过。早期未校准smoke的CPU百分比无效，不用于性能预算。持续采样若仍使用旧二进制，必须保留原始计数和时基另行换算，不能混用新旧单位。
