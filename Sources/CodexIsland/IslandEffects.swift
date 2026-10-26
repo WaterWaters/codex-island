@@ -37,33 +37,33 @@ struct IslandOutline: View {
                 if settings.appearancePreset == .highContrast {
                     // A continuous, unblurred outline remains legible against
                     // both dark and light desktops. Status also has a glyph.
-                    shape.stroke(.white, lineWidth: 2)
+                    shape.stroke(.white, lineWidth: mini && notched ? 2.4 : 2)
                     shape.stroke(tint, lineWidth: 1)
                 } else if settings.appearancePreset == .quiet {
-                    shape.stroke(tint.opacity(state == .idle ? 0.35 : 0.75), lineWidth: 1.1)
+                    shape.stroke(tint.opacity(state == .idle ? 0.35 : 0.75), lineWidth: mini && notched ? 1.6 : 1.1)
                 } else if state == .running {
                     shape.stroke(.white.opacity(0.09), lineWidth: 0.8)
                     shape.stroke(AngularGradient(colors: [primary.opacity(0.5), primary, secondary, primary.opacity(0.5)],
                                                  center: .center, angle: .degrees(time.truncatingRemainder(dividingBy: 6) * 60)),
-                                 lineWidth: 1.1).opacity(0.65)
+                                 lineWidth: mini && notched ? 1.5 : 1.1).opacity(0.65)
                     OrbitSegment(notched: notched, mini: mini, phase: time / 3.0, length: 0.19)
                         .stroke(primary, style: StrokeStyle(lineWidth: 4, lineCap: .round)).blur(radius: 4).opacity(0.7)
                     OrbitSegment(notched: notched, mini: mini, phase: time / 3.0, length: 0.12)
-                        .stroke(primary, style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
+                        .stroke(primary, style: StrokeStyle(lineWidth: mini && notched ? 2.4 : 1.7, lineCap: .round))
                     OrbitSegment(notched: notched, mini: mini, phase: time / 3.0 + 0.5, length: 0.13)
-                        .stroke(secondary.opacity(0.85), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+                        .stroke(secondary.opacity(0.85), style: StrokeStyle(lineWidth: mini && notched ? 2.2 : 1.4, lineCap: .round))
                 } else if state == .needsInput || state == .blocked {
                     shape.stroke(tint, lineWidth: 5).blur(radius: 5).opacity(0.2 + pulse * 0.45)
-                    shape.stroke(tint.opacity(0.45 + pulse * 0.55), lineWidth: 1.6)
+                    shape.stroke(tint.opacity(0.45 + pulse * 0.55), lineWidth: mini && notched ? 2.4 : 1.6)
                 } else {
-                    shape.stroke(tint.opacity(state == .idle ? 0.13 + pulse * 0.16 : 0.6), lineWidth: 1)
+                    shape.stroke(tint.opacity(state == .idle ? 0.13 + pulse * 0.16 : 0.6), lineWidth: mini && notched ? 1.5 : 1)
                     if state == .idle {
                         OrbitSegment(notched: notched, mini: mini, phase: time / 12, length: 0.10)
                             .stroke(tint.opacity(0.35), style: StrokeStyle(lineWidth: 1.1, lineCap: .round))
                     }
                 }
             }
-            .padding(2)
+            .padding(mini && notched ? 1 : 2)
             .clipShape(shape)
         }
         .allowsHitTesting(false)

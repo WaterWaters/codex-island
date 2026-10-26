@@ -4,13 +4,13 @@
 
 ## Continuous integration
 
-The macOS checks workflow runs for pushes to main, pull requests, and manual dispatch. Its matrix covers the macOS 14 Apple Silicon runner and the macOS 15 Intel runner. Each job checks public files and documentation links, validates script syntax, runs the fixture-based tests, builds a native Release app, and verifies its signature.
+The macOS checks workflow runs for pushes to main, pull requests, and manual dispatch. Its matrix covers the macOS 14 Apple Silicon runner and the macOS 15 Intel runner. Each job checks public files and documentation links, validates script syntax, runs the fixture-based tests, builds a native Release app, verifies its signature, and executes the packaged binary with `--check-resources`. This checks the four language catalogs and brand icon without creating NSApplication or reading Codex data.
 
 Hosted-runner unit tests do not replace real desktop validation of approvals, Spaces, displays, or long-duration performance. No real chats, personal images, or signing credentials are required. The native gallery rasterization test is an opt-in desktop integration check (`CODEX_ISLAND_TEST_RENDER_PREVIEWS=1 ./Scripts/test.sh`). A headless runner may return a Metal device that still aborts during rendering, so device availability alone is insufficient. Default CI explicitly skips that check while synthetic gallery model and brand-pixel checks still run.
 
 ## Preview release workflow
 
-Pushing a version tag such as v0.7.3 starts the preview workflow. Maintainers can also dispatch it manually with an existing tag. The workflow:
+Pushing a version tag such as v0.8.1 starts the preview workflow. Maintainers can also dispatch it manually with an existing tag. The workflow:
 
 1. Checks that the tag is a version, resolves to the checked-out commit, and is on main's history.
 2. Checks the public source set and runs Release tests.
@@ -28,14 +28,14 @@ Update MARKETING_VERSION and BUILD_NUMBER in Scripts/package_app.sh, plus the ch
 ```bash
 python3 Scripts/verify_repository.py
 ./Scripts/test.sh -c release
-./Scripts/package_release.sh v0.7.3
+./Scripts/package_release.sh v0.8.1
 ```
 
 After committing and pushing to main, wait for all CI jobs on that exact commit to pass before creating the version tag:
 
 ```bash
-git tag -a v0.7.3 -m "Codex Island v0.7.3 preview"
-git push origin v0.7.3
+git tag -a v0.8.1 -m "Codex Island v0.8.1 preview"
+git push origin v0.8.1
 ```
 
 Do not reuse a published tag. A failed workflow may leave a draft; inspect it and the failure logs before manually recovering. Published assets are not overwritten by rerunning the workflow.
@@ -58,6 +58,6 @@ Current builds are **ad-hoc signed and not notarized**. No Developer ID certific
 
 ## Public source gate
 
-Scripts/verify_repository.py rejects generated/private directories, session databases and JSONL, key material paths, unexpected media, and recognizable embedded GitHub tokens/private-key blocks. The media allowlist contains the reviewed brand assets, the settings icon copy, and eight synthetic native state previews. It also checks local Markdown references. This targeted gate is not a complete secret scanner or a replacement for code review.
+Scripts/verify_repository.py rejects generated/private directories, session databases and JSONL, key material paths, unexpected media, and recognizable embedded GitHub tokens/private-key blocks. The media allowlist contains the reviewed brand assets, the settings icon copy, and sixteen synthetic native Full/Mini state previews. It also checks local Markdown references. This targeted gate is not a complete secret scanner or a replacement for code review.
 
 Personal pet files stay in the ignored local directory and are absent from Git history and release bundles. The app's separate bundle allowlist prevents an accidental private resource copy from reaching a release archive.

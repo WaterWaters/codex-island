@@ -64,6 +64,8 @@ Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作�
 <a id="getting-started"></a>
 ## 快速开始
 
+**请使用 v0.8.1 或更新版本：** 修复 v0.8.0 安装包启动时的资源定位崩溃，并收窄刘海 Mini 黑边、加粗灯带；原有偏好保留。
+
 **预览版安装包：** [GitHub Releases](https://github.com/WaterWaters/codex-island/releases)。发布流程检查通过后，会提供 universal DMG 和 ZIP。[发布指南](releases.md)。
 
 **从源码构建：** 需要 macOS 14+、Swift 6+，以及 Xcode 或 Command Line Tools。实时本机状态需要安装 Codex。项目没有第三方 Swift 包依赖。

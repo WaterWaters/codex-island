@@ -10,7 +10,7 @@ final class L10n {
     private static let bundles: [String: Bundle] = {
         var result: [String: Bundle] = [:]
         for language in ["en", "zh-Hans", "zh-Hant", "ja"] {
-            if let bundle = resolveLocalizedBundle(language, in: .module) {
+            if let bundle = resolveLocalizedBundle(language, in: AppResources.bundle) {
                 result[language] = bundle
             }
         }

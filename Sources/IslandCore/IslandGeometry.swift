@@ -13,8 +13,8 @@ public struct IslandGeometry: Equatable, Sendable {
                               displayMode: IslandDisplayMode = .full) -> Self {
         let notched = notchWidth.isFinite && notchHeight.isFinite && notchWidth > 0 && notchHeight > 0
         if displayMode == .mini {
-            return Self(width: notched ? notchWidth + 10 : 44,
-                        height: notched ? notchHeight + 6 : 22,
+            return Self(width: notched ? notchWidth + 3 : 44,
+                        height: notched ? notchHeight + 2 : 22,
                         notchWidth: notched ? notchWidth : 0,
                         notchHeight: notched ? notchHeight : 0,
                         hasNotch: notched, displayMode: .mini)

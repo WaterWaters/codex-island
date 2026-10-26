@@ -64,6 +64,8 @@ A quieter presence: a 44 × 22 pt capsule on standard displays, or a light outli
 <a id="getting-started"></a>
 ## Get started
 
+**Use v0.8.1 or later:** it fixes a packaged-app startup resource lookup crash in v0.8.0 and refines the notch Mini outline. Existing preferences are preserved.
+
 **Preview packages:** [GitHub Releases](https://github.com/WaterWaters/codex-island/releases). The release workflow publishes a universal DMG and ZIP after its checks pass. [Release guide](docs/releases.md).
 
 **Build from source:** macOS 14+, Swift 6+, and Xcode or Command Line Tools. Install Codex for live local status. There are no third-party Swift package dependencies.

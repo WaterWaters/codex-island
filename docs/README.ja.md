@@ -64,6 +64,8 @@ Codex Island は、現在のローカルセッションのタイトルと作業�
 <a id="getting-started"></a>
 ## はじめる
 
+**v0.8.1 以降をご利用ください：** v0.8.0 配布アプリのリソース検索による起動時クラッシュを修正し、ノッチの Mini 表示を細く合わせてライトを太くしました。既存の設定は保持されます。
+
 **プレビュー版：** [GitHub Releases](https://github.com/WaterWaters/codex-island/releases)。リリースの検証が成功すると、Universal DMG と ZIP が公開されます。[リリースガイド](releases.md)。
 
 **ソースからビルド：** macOS 14 以降、Swift 6 以降、Xcode または Command Line Tools が必要です。実際のローカル状態を表示するには Codex をインストールしてください。サードパーティーの Swift パッケージには依存しません。

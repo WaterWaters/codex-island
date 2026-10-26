@@ -12,10 +12,11 @@ struct Options {
     var renderPath: URL?
     var galleryPath: URL?
     var mini = false
+    var checkResources = false
     private var isPreviewBundle = false
 
     var permitsPersistentChanges: Bool {
-        demo == nil && statusFile == nil && !diagnose && !help && renderPath == nil && galleryPath == nil && !isPreviewBundle && !mini
+        demo == nil && statusFile == nil && !diagnose && !help && !checkResources && renderPath == nil && galleryPath == nil && !isPreviewBundle && !mini
     }
 
     init(arguments: [String], previewState: String? = Bundle.main.object(forInfoDictionaryKey: "CodexIslandPreviewState") as? String) throws {
@@ -36,6 +37,7 @@ struct Options {
                 statusFile = URL(fileURLWithPath: arguments[index])
             case "--diagnose": diagnose = true
             case "--mini": mini = true
+            case "--check-resources": checkResources = true
             case "--render-previews":
                 index += 1
                 guard index < arguments.count, arguments[index].hasPrefix("/") else { throw OptionError.invalid }
@@ -428,8 +430,23 @@ enum CodexIslandMain {
               --render-previews /absolute/preview.png     渲染原生视图示意并退出
               --render-gallery /absolute/directory        渲染 4 状态 × 2 屏幕的公开示意图
               --mini                                     本次使用 Mini 模式；与演示/图库组合，不写正式偏好
+              --check-resources                          只检查随包四语言与品牌资源，不创建界面或读取 Codex
             默认使用只读本机会话状态；当前不支持完成未读同步，未验证与宠物完全一致。
             """)
+            return
+        }
+        if options.checkResources {
+            let languages = ["en", "zh-Hans", "zh-Hant", "ja"]
+            let valid = languages.allSatisfy { language in
+                guard let bundle = L10n.localizedBundle(language) else { return false }
+                let value = bundle.localizedString(forKey: "settings.window.title", value: nil, table: nil)
+                return !value.isEmpty && value != "settings.window.title"
+            }
+            guard valid, AppResources.bundle.url(forResource: "AppIcon", withExtension: "png", subdirectory: "Brand") != nil else {
+                print("Packaged resource check failed")
+                exit(1)
+            }
+            print("Packaged resources verified: 4 languages and brand icon")
             return
         }
         let app = NSApplication.shared

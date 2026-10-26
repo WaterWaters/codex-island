@@ -13,11 +13,11 @@ import DesktopFeed
     #expect(!IslandHitRegion.contains(CGPoint(x: 22, y: 23), geometry: normal))
     let notch = IslandGeometry.layout(screenWidth: 1512, notchWidth: 180, notchHeight: 32,
                                       expanded: true, displayMode: .mini)
-    #expect(!IslandHitRegion.contains(CGPoint(x: 95, y: 15), geometry: notch))
-    #expect(IslandHitRegion.contains(CGPoint(x: 2, y: 15), geometry: notch))
-    #expect(IslandHitRegion.contains(CGPoint(x: 188, y: 15), geometry: notch))
-    #expect(IslandHitRegion.contains(CGPoint(x: 95, y: 35), geometry: notch))
-    #expect(!IslandHitRegion.contains(CGPoint(x: 1, y: 37), geometry: notch))
+    #expect(!IslandHitRegion.contains(CGPoint(x: 91.5, y: 15), geometry: notch))
+    #expect(IslandHitRegion.contains(CGPoint(x: 0.75, y: 15), geometry: notch))
+    #expect(IslandHitRegion.contains(CGPoint(x: 182.25, y: 15), geometry: notch))
+    #expect(IslandHitRegion.contains(CGPoint(x: 91.5, y: 33), geometry: notch))
+    #expect(!IslandHitRegion.contains(CGPoint(x: 1, y: 33), geometry: notch))
 }
 
 @MainActor @Test func miniModePreservesStatusAndPrivacyWithoutAnnouncingAnInvisiblePet() throws {

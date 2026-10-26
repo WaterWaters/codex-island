@@ -29,7 +29,7 @@ import Testing
         for (width, depth) in [(180.0, 32.0), (214, 37), (163.5, 28.5)] {
             let notch = IslandGeometry.layout(screenWidth: 1512, notchWidth: width, notchHeight: depth,
                                               expanded: true, contentHeight: height, displayMode: .mini)
-            #expect(notch.width == width + 10 && notch.height == depth + 6)
+            #expect(notch.width == width + 3 && notch.height == depth + 2)
             #expect(notch.notchWidth == width && notch.notchHeight == depth && notch.hasNotch)
         }
     }
@@ -64,7 +64,7 @@ import Testing
     let frame = DisplayPlacementPolicy.frame(screenFrame: screen, visibleFrame: screen, geometry: geometry,
                                               backingScale: 2, notchCenterX: cutout.centerX)
     #expect(frame.midX == -820 && frame.maxY == 1100)
-    #expect(frame.width == 210 && frame.height == 38)
+    #expect(frame.width == 203 && frame.height == 34)
     #expect(DisplayCutout.resolve(screenFrame: screen, safeAreaTop: 0, leftArea: left, rightArea: right) == nil)
     #expect(DisplayCutout.resolve(screenFrame: screen, safeAreaTop: .nan, leftArea: left, rightArea: right) == nil)
     #expect(DisplayCutout.resolve(screenFrame: screen, safeAreaTop: 32, leftArea: nil, rightArea: right) == nil)

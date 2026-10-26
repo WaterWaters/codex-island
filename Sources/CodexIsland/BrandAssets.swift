@@ -5,7 +5,7 @@ import AppKit
 @MainActor
 enum BrandAssets {
     static let colorIcon: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "AppIcon", withExtension: "png", subdirectory: "Brand") else { return nil }
+        guard let url = AppResources.bundle.url(forResource: "AppIcon", withExtension: "png", subdirectory: "Brand") else { return nil }
         return NSImage(contentsOf: url)
     }()
 

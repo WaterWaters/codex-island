@@ -18,8 +18,8 @@ if [[ -n "$PREVIEW_STATE" ]]; then
   BUNDLE_ID=dev.water.codex-island.preview
 fi
 MACOS_MIN_VERSION=14.0
-MARKETING_VERSION=0.8.0
-BUILD_NUMBER=14
+MARKETING_VERSION=0.8.1
+BUILD_NUMBER=15
 ARCH_LIST=( ${ARCHES:-$(uname -m)} )
 export CLANG_MODULE_CACHE_PATH="$ROOT/.build/module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT/.build/module-cache"
@@ -98,6 +98,9 @@ xattr -cr "$STAGED_APP"
 codesign --force --sign - "$STAGED_APP/Contents/MacOS/CodexIslandProbe"
 codesign --force --sign - "$STAGED_APP"
 codesign --verify --strict "$STAGED_APP"
+# Execute the packaged binary before publication. Building and signing alone
+# do not prove that SwiftPM's generated resource accessor can find this layout.
+"$STAGED_APP/Contents/MacOS/$APP_NAME" --check-resources
 # Only replace this script's fixed build output after a successful signed build.
 rm -rf "$APP"
 mv "$STAGED_APP" "$APP"

@@ -1,6 +1,6 @@
 # 产品与技术设计
 
-版本：v0.8.0 Preview。macOS 14+，Swift 6 / SwiftUI / AppKit，无第三方 Swift 包依赖。
+版本：v0.8.1 Preview。macOS 14+，Swift 6 / SwiftUI / AppKit，无第三方 Swift 包依赖。
 
 ## 展示与交互
 
@@ -14,7 +14,7 @@
 
 标题及活动位于最上层；宠物位于中间层。所选宠物工作时停在右侧，空闲时可短距离漫步，位置及步态共用时间轴。减少动态效果、隐藏或休眠时暂停相关动画。具体时序见 [宠物播放](pet-animation.md)。
 
-Mini 模式通过菜单或外观设置切换，默认仍为完整模式。普通屏为顶部居中的 44 × 22 pt 短胶囊，中央复用紧凑状态光圈 / 等待点；刘海屏仅显示刘海外围的跑马灯或脉冲，外扩 5 pt、下沿延伸 6 pt，不在摄像头内画状态。通过 `safeAreaInsets.top` 和 `auxiliaryTopLeftArea` / `auxiliaryTopRightArea` 的全局坐标计算宽高及中心，不绑定具体机型；系统指标缺失或不一致时使用普通胶囊。Mini 不展示标题行与宠物，悬停及 VoiceOver 保留状态并遵循标题隐私。透明圆角与物理摄像头区域在窗口层穿透，切回完整模式保留宠物与高度；减少动态效果及隐藏暂停逻辑复用现有实现。
+Mini 模式通过菜单或外观设置切换，默认仍为完整模式。普通屏为顶部居中的 44 × 22 pt 短胶囊，中央复用紧凑状态光圈 / 等待点；刘海屏仅显示刘海外围的跑马灯或脉冲，两侧外扩各 1.5 pt、下沿延伸 2 pt，Mini 刘海主灯线 2.4 pt，不在摄像头内画状态。通过 `safeAreaInsets.top` 和 `auxiliaryTopLeftArea` / `auxiliaryTopRightArea` 的全局坐标计算宽高及中心，不绑定具体机型；系统指标缺失或不一致时使用普通胶囊。Mini 不展示标题行与宠物，悬停及 VoiceOver 保留状态并遵循标题隐私。透明圆角与物理摄像头区域在窗口层穿透，切回完整模式保留宠物与高度；减少动态效果及隐藏暂停逻辑复用现有实现。
 
 ## 首次使用与连接设置
 
@@ -56,3 +56,5 @@ v0.7.2 之后的源码统一 GUI / probe 的 `CODEX_HOME` 配置解析，并为�
 内部数据库和 ASAR 字面量不是官方稳定 API。远端 / 云端聊天、完整未读、全部审批、跨 Space / 全屏组合、最低系统和 Intel，以及 30 分钟整应用性能尚未完整验收。来源失败明确显示不可用，不自动回退演示。
 
 [Atoll](https://github.com/Ebullioscopic/Atoll) 仅为视觉参考；[素材与品牌边界](../THIRD_PARTY_NOTICES.md) 单独说明。
+
+资源入口：打包应用优先从 `Contents/Resources/CodexIsland_CodexIsland.bundle` 加载四语言及品牌；仅开发运行回落 SwiftPM 生成的资源访问器，避免构建机路径进入已分发应用的必要启动依赖。打包后执行 `--check-resources`，只验证四语言与品牌资源，不创建界面或读取 Codex 数据。

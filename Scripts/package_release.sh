@@ -63,21 +63,18 @@ Path('build/RELEASE_NOTES.md').write_text(f'''## Codex Island {tag} — Preview
 
 A native macOS status island for local Codex sessions, with activity, recognized question waits, appearance settings, and optional locally loaded built-in and custom pets.
 
-### Changes
+### 本次修复
 
-- Add Mini mode: a 44 × 22 pt top-center capsule with an activity glyph on standard displays, or lights following the notch using macOS safe-area and auxiliary-area geometry. Switch in the menu or Appearance settings; existing preferences default to Full mode.
-- Keep status and privacy-aware hover/accessibility text in Mini mode, hide the pet and text rows, and pass clicks through transparent corners and the camera housing. Motion preferences still apply.
-- Verify exact rollout session/turn identity before associating mismatched history records; ambiguous identity stays unavailable rather than reporting false idle activity.
-- Add a skippable, repeatable first-use guide and grouped settings with actionable connection status, manual resynchronization, and redacted diagnostic copying.
-- Support system-following or English, Simplified Chinese, Traditional Chinese, and Japanese UI, plus title privacy across visible and accessibility surfaces.
-- Add optional launch at login with real system status, an opt-in Control-Option-Command-I visibility shortcut with conflict reporting, pinned displays with fallback/reconnection, and appearance presets.
-- Stop hidden animation views and track overlapping sleep, screen sleep, and inactive-session reasons independently.
-- Validate large events incrementally without retaining full tool output, question titles, or answers; preserve question semantics and bounded parsing budgets.
-- Discover local custom pets and cloud pets already cached by Codex, load their names and animation, and preserve the selection across restarts. No network requests or personal images are bundled.
-- Preserve loaded pets when their source is temporarily unavailable; migrate the former system-icon selection to the built-in Codex pet.
-- Retry failed session events with bounded backoff, expose limited synchronization, and add manual status resynchronization.
-- Share explicit CODEX_HOME validation across the app, probe, and diagnostics.
-- Refine the menu-bar and settings brand icons and add eight synthetic native state previews to all four README languages.
+- 修复发布包启动时 SwiftPM 资源定位失败引发的崩溃，四语言和品牌统一优先读取随包 Contents/Resources；开发运行仍兼容 SwiftPM 资源。
+- 新增 `--check-resources`，打包时实际执行产物并检查四语言与图标；检查不创建界面、不读 Codex 数据、不写正式偏好。
+- 刘海 Mini 外框改为两侧各 1.5 pt、下沿 2 pt，主跑马灯及等待 / 错误轮廓加粗到 2.4 pt；普通屏 44 × 22 pt 胶囊保持原样。
+- 单块 185 × 32 pt 刘海 / 2× 屏幕完成隔离的运行、等待、错误与关闭动画检查。用户确认收窄后的贴边尺寸合适；这不代表所有刘海机型或完整生命周期均已验收。
+
+### 升级与兼容
+
+- 建议 0.8.0 安装包用户升级本补丁；退出旧应用后替换应用并重新打开，原有偏好保留。
+- 相对 v0.8.0 未发现数据库结构 / 迁移变更，无本版本新增 DDL 步骤；没有新增、删除或升级运行 / 构建依赖。
+- 继续提供 macOS 14+ 的 Apple Silicon / Intel 通用包，ad-hoc 签名，未 Developer ID 签名或公证。
 
 ### Downloads
 
