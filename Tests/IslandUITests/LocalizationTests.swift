@@ -7,6 +7,26 @@ import SwiftUI
 import Testing
 @testable import CodexIsland
 
+@MainActor @Test func localizationBundleLookupSupportsBothSwiftPMDirectoryCasings() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("localization-casing-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    for spelling in ["zh-hans", "zh-Hans", "zh-hant", "zh-Hant"] {
+        let bundleRoot = root.appendingPathComponent(spelling + ".bundle")
+        let resources = bundleRoot.appendingPathComponent("Contents/Resources")
+        let directory = resources.appendingPathComponent(spelling + ".lproj")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let info = ["CFBundleIdentifier": "dev.water.synthetic-localization", "CFBundleDevelopmentRegion": "en"]
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            .write(to: bundleRoot.appendingPathComponent("Contents/Info.plist"))
+        try Data(#""sentinel" = "中文";"#.utf8).write(to: directory.appendingPathComponent("Localizable.strings"))
+        let bundle = try #require(Bundle(url: bundleRoot))
+        let language = spelling.lowercased().hasSuffix("hans") ? "zh-Hans" : "zh-Hant"
+        let localized = try #require(L10n.resolveLocalizedBundle(language, in: bundle))
+        #expect(localized.localizedString(forKey: "sentinel", value: nil, table: nil) == "中文")
+        #expect(L10n.resolveLocalizedBundle("ja", in: bundle) == nil)
+    }
+}
+
 @MainActor @Test func localizationResourcesHaveIdenticalKeysAndFormatArguments() throws {
     let languages: [AppLanguage] = [.en, .zhHans, .zhHant, .ja]
     var catalogs: [[String: String]] = []
