@@ -40,6 +40,17 @@ Codex Island 將目前本機工作階段的標題與活動放在螢幕頂端。�
 | <img src="assets/previews/blocked-notched.png" alt="瀏海螢幕上的工作受阻狀態" width="440"><br><strong>工作受阻</strong><br>回合失敗時，使用獨立的錯誤狀態。 | <img src="assets/previews/blocked-standard.png" alt="一般外接螢幕上的工作受阻狀態" width="440"><br><strong>工作受阻</strong><br>回合失敗時，使用獨立的錯誤狀態。 |
 | <img src="assets/previews/idle-notched.png" alt="瀏海螢幕上的閒置狀態島" width="440"><br><strong>閒置</strong><br>Codex 開著時，安靜留在視線裡。 | <img src="assets/previews/idle-standard.png" alt="一般外接螢幕上的閒置狀態島" width="440"><br><strong>閒置</strong><br>Codex 開著時，安靜留在視線裡。 |
 
+### Mini 模式
+
+更輕巧的常駐方式：一般螢幕頂端中央顯示 44 × 22 pt 短膠囊，瀏海螢幕自動沿瀏海外緣顯示燈帶。從選單列 **Mini 模式** 或 **設定 → 外觀 → 顯示模式** 切換。移入查看狀態，點按開啟 Codex；Mini 不顯示文字與寵物，原有寵物與高度用於完整模式。開啟標題隱私後，移入說明與 VoiceOver 也會隱藏標題。
+
+| 瀏海螢幕 | 一般螢幕 |
+| :---: | :---: |
+| <img src="assets/previews/mini-running-notched.png" alt="Mini · 工作中 · 瀏海螢幕" width="440"><br><strong>工作中</strong> | <img src="assets/previews/mini-running-standard.png" alt="Mini · 工作中 · 一般螢幕" width="440"><br><strong>工作中</strong> |
+| <img src="assets/previews/mini-needsInput-notched.png" alt="Mini · 需要你 · 瀏海螢幕" width="440"><br><strong>需要你</strong> | <img src="assets/previews/mini-needsInput-standard.png" alt="Mini · 需要你 · 一般螢幕" width="440"><br><strong>需要你</strong> |
+| <img src="assets/previews/mini-blocked-notched.png" alt="Mini · 工作受阻 · 瀏海螢幕" width="440"><br><strong>工作受阻</strong> | <img src="assets/previews/mini-blocked-standard.png" alt="Mini · 工作受阻 · 一般螢幕" width="440"><br><strong>工作受阻</strong> |
+| <img src="assets/previews/mini-idle-notched.png" alt="Mini · 閒置 · 瀏海螢幕" width="440"><br><strong>閒置</strong> | <img src="assets/previews/mini-idle-standard.png" alt="Mini · 閒置 · 一般螢幕" width="440"><br><strong>閒置</strong> |
+
 <a id="features"></a>
 ## 少切換幾次視窗
 
@@ -66,9 +77,9 @@ open build/CodexIsland.app
 
 啟動後可在選單列找到應用程式。Codex 執行期間，狀態島在閒置時仍會保留；Codex 結束後隱藏。也可以從選單列手動顯示或隱藏。
 
-v0.7.3 之後的原始碼新增可略過的首次引導，以及一般 / 外觀 / 連線 / 實驗功能四組設定。連線頁提供下一步與去識別化診斷複製；這些新增功能尚未包含於 v0.7.3 下載套件。[首次使用與連線檢查](getting-started.md)。
+v0.8.0 新增可略過的首次引導，以及一般 / 外觀 / 連線 / 實驗功能四組設定。連線頁提供下一步與去識別化診斷複製。[首次使用與連線檢查](getting-started.md)。
 
-未發布原始碼另提供標題隱私、選用登入時啟動、主動啟用的 ⌃⌥⌘I 顯隱快捷鍵、固定顯示器與重接恢復，以及預設 / 靜謐 / 高對比外觀。設定即時生效，登入核准與快捷鍵衝突顯示實際結果。
+v0.8.0 另提供標題隱私、選用登入時啟動、主動啟用的 ⌃⌥⌘I 顯隱快捷鍵、固定顯示器與重接恢復，以及預設 / 靜謐 / 高對比外觀。設定即時生效，登入核准與快捷鍵衝突顯示實際結果。
 
 > [!NOTE]
 > 目前應用程式套件僅使用本機 ad-hoc 簽章，尚未公證，預設建置目前 CPU 架構。已驗證 Apple Silicon / Swift 6.4；macOS 14 與 Intel 的實機執行仍待驗收。
@@ -90,7 +101,7 @@ v0.7.3 之後的原始碼新增可略過的首次引導，以及一般 / 外觀 
 
 預設來源唯讀存取目前使用者的 `~/.codex/` 資料庫與活動工作階段事件，不修改 Codex 資料，不傳送聊天、核准請求或標記已讀。事件解析在記憶體中處理，診斷輸出不包含工作階段標題或聊天內容。
 
-**預設會顯示標題。** 未發布原始碼新增標題隱私，涵蓋島、懸停與 VoiceOver；分享螢幕前也可依需要隱藏狀態島。核准按鈕辨識是預設關閉的選用輔助使用功能，需要使用者自行授權；系統權限比應用程式實際執行的唯讀檢查範圍更廣。詳見 [安全與隱私](../SECURITY.md)。
+**預設會顯示標題。** v0.8.0 提供標題隱私，涵蓋島、懸停與 VoiceOver；分享螢幕前也可依需要隱藏狀態島。核准按鈕辨識是預設關閉的選用輔助使用功能，需要使用者自行授權；系統權限比應用程式實際執行的唯讀檢查範圍更廣。詳見 [安全與隱私](../SECURITY.md)。
 
 <a id="compatibility"></a>
 ## 目前能力與限制
@@ -141,7 +152,7 @@ open build/CodexIslandPreview.app
 <a id="documentation"></a>
 ## 文件
 
-透過 [文件索引](README.md) 查看架構、狀態來源、寵物動畫、效能基準與發布檢查。技術文件目前主要以簡體中文撰寫，專案介紹提供上方四種語言；未發布原始碼另支援跟隨系統或英語、簡繁中文、日語介面；v0.7.3 下載套件尚不包含此功能。
+透過 [文件索引](README.md) 查看架構、狀態來源、寵物動畫、效能基準與發布檢查。技術文件目前主要以簡體中文撰寫，專案介紹提供上方四種語言；v0.8.0 支援跟隨系統或英語、簡繁中文、日語介面。
 
 <a id="contributing"></a>
 ## 參與貢獻

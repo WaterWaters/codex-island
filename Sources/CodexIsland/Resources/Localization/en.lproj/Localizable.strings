@@ -176,3 +176,8 @@
 "pet.synced_partial" = "Animation Timing Synchronized · Codex %@ · Some Custom Pet Cache Unavailable";
 "pet.compatibility_partial" = "Using Compatibility Timing · Some Custom Pet Cache Unavailable";
 "island.detail" = "%@ · %@";
+
+"settings.display_mode" = "Display mode";
+"settings.mode_full" = "Full mode";
+"settings.mode_mini" = "Mini mode";
+"settings.mini_hint" = "Mini uses a 44 × 22 pt capsule on standard displays and follows the notch automatically. Hover for status; click to open Codex. Pets and height apply to Full mode.";

@@ -11,10 +11,11 @@ struct Options {
     var help = false
     var renderPath: URL?
     var galleryPath: URL?
+    var mini = false
     private var isPreviewBundle = false
 
     var permitsPersistentChanges: Bool {
-        demo == nil && statusFile == nil && !diagnose && !help && renderPath == nil && galleryPath == nil && !isPreviewBundle
+        demo == nil && statusFile == nil && !diagnose && !help && renderPath == nil && galleryPath == nil && !isPreviewBundle && !mini
     }
 
     init(arguments: [String], previewState: String? = Bundle.main.object(forInfoDictionaryKey: "CodexIslandPreviewState") as? String) throws {
@@ -34,6 +35,7 @@ struct Options {
                 guard index < arguments.count, arguments[index].hasPrefix("/") else { throw OptionError.invalid }
                 statusFile = URL(fileURLWithPath: arguments[index])
             case "--diagnose": diagnose = true
+            case "--mini": mini = true
             case "--render-previews":
                 index += 1
                 guard index < arguments.count, arguments[index].hasPrefix("/") else { throw OptionError.invalid }
@@ -82,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.options = options
         let defaults: UserDefaults? = options.permitsPersistentChanges ? .standard : nil
         model = IslandModel(preferences: IslandPreferences(defaults: defaults))
+        if options.mini { model.preferences.values.displayMode = .mini }
         loginItem = LoginItemController(service: options.permitsPersistentChanges ? SystemLoginItem() : nil)
         onboardingProgress = OnboardingProgress(defaults: defaults,
             permitsAutomaticPresentation: options.permitsPersistentChanges)
@@ -424,13 +427,14 @@ enum CodexIslandMain {
               --diagnose                                 输出只读诊断并退出
               --render-previews /absolute/preview.png     渲染原生视图示意并退出
               --render-gallery /absolute/directory        渲染 4 状态 × 2 屏幕的公开示意图
+              --mini                                     本次使用 Mini 模式；与演示/图库组合，不写正式偏好
             默认使用只读本机会话状态；当前不支持完成未读同步，未验证与宠物完全一致。
             """)
             return
         }
         let app = NSApplication.shared
         if let url = options.galleryPath {
-            do { try PreviewRenderer.renderGallery(to: url); print("Rendered 8 native previews") }
+            do { try PreviewRenderer.renderGallery(to: url, displayMode: options.mini ? .mini : .full); print("Rendered 8 native previews") }
             catch { print("原生图库渲染失败"); exit(1) }
             return
         }

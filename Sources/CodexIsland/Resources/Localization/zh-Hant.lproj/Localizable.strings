@@ -176,3 +176,8 @@
 "pet.synced_partial" = "動畫時長已同步 · Codex %@ · 部分自訂寵物快取暫不可用";
 "pet.compatibility_partial" = "使用相容動畫時長 · 部分自訂寵物快取暫不可用";
 "island.detail" = "%@ · %@";
+
+"settings.display_mode" = "顯示模式";
+"settings.mode_full" = "完整模式";
+"settings.mode_mini" = "Mini 模式";
+"settings.mini_hint" = "Mini 在一般螢幕顯示 44 × 22 pt 短膠囊，瀏海螢幕自動貼合瀏海外緣。移入查看狀態，點按開啟 Codex；寵物與高度用於完整模式。";

@@ -40,6 +40,17 @@ Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作�
 | <img src="assets/previews/blocked-notched.png" alt="刘海屏上的工作受阻状态" width="440"><br><strong>工作受阻</strong><br>回合失败时，使用独立的错误状态。 | <img src="assets/previews/blocked-standard.png" alt="普通外接屏上的工作受阻状态" width="440"><br><strong>工作受阻</strong><br>回合失败时，使用独立的错误状态。 |
 | <img src="assets/previews/idle-notched.png" alt="刘海屏上的空闲状态岛" width="440"><br><strong>空闲</strong><br>Codex 开着时，安静留在视线里。 | <img src="assets/previews/idle-standard.png" alt="普通外接屏上的空闲状态岛" width="440"><br><strong>空闲</strong><br>Codex 开着时，安静留在视线里。 |
 
+### Mini 模式
+
+更轻的常驻方式：普通屏顶部居中显示 44 × 22 pt 短胶囊，刘海屏自动贴合刘海外缘显示灯带。从菜单栏 **Mini 模式** 或 **设置 → 外观 → 显示模式** 切换。悬停查看状态，点击打开 Codex；Mini 不显示文字和宠物，原有宠物与高度用于完整模式。开启标题隐私后，悬停与 VoiceOver 也隐藏标题。
+
+| 刘海屏 | 普通屏 |
+| :---: | :---: |
+| <img src="assets/previews/mini-running-notched.png" alt="Mini · 工作中 · 刘海屏" width="440"><br><strong>工作中</strong> | <img src="assets/previews/mini-running-standard.png" alt="Mini · 工作中 · 普通屏" width="440"><br><strong>工作中</strong> |
+| <img src="assets/previews/mini-needsInput-notched.png" alt="Mini · 需要你 · 刘海屏" width="440"><br><strong>需要你</strong> | <img src="assets/previews/mini-needsInput-standard.png" alt="Mini · 需要你 · 普通屏" width="440"><br><strong>需要你</strong> |
+| <img src="assets/previews/mini-blocked-notched.png" alt="Mini · 工作受阻 · 刘海屏" width="440"><br><strong>工作受阻</strong> | <img src="assets/previews/mini-blocked-standard.png" alt="Mini · 工作受阻 · 普通屏" width="440"><br><strong>工作受阻</strong> |
+| <img src="assets/previews/mini-idle-notched.png" alt="Mini · 空闲 · 刘海屏" width="440"><br><strong>空闲</strong> | <img src="assets/previews/mini-idle-standard.png" alt="Mini · 空闲 · 普通屏" width="440"><br><strong>空闲</strong> |
+
 <a id="features"></a>
 ## 少切几次窗口
 
@@ -66,9 +77,9 @@ open build/CodexIsland.app
 
 启动后可在菜单栏找到应用。Codex 运行期间，状态岛在空闲时仍会保留；Codex 退出后隐藏。也可以从菜单栏手动显示或隐藏。
 
-v0.7.3 之后的源码新增可跳过的首次引导，以及常规 / 外观 / 连接 / 实验功能四组设置。连接页提供下一步和脱敏诊断复制；这些新增能力尚未包含在 v0.7.3 下载包中。[首次使用与连接检查](getting-started.md)。
+v0.8.0 新增可跳过的首次引导，以及常规 / 外观 / 连接 / 实验功能四组设置。连接页提供下一步和脱敏诊断复制。[首次使用与连接检查](getting-started.md)。
 
-未发布源码另提供标题隐私、可选登录时启动、主动启用的 ⌃⌥⌘I 显隐快捷键、固定显示器与重接恢复，以及默认 / 静谧 / 高对比预设。设置即时生效，登录批准与快捷键冲突显示实际结果。
+v0.8.0 另提供标题隐私、可选登录时启动、主动启用的 ⌃⌥⌘I 显隐快捷键、固定显示器与重接恢复，以及默认 / 静谧 / 高对比预设。设置即时生效，登录批准与快捷键冲突显示实际结果。
 
 > [!NOTE]
 > 当前应用包只做了本机 ad-hoc 签名，未公证，默认构建当前 CPU 架构。已验证 Apple Silicon / Swift 6.4；macOS 14 和 Intel 的实机运行仍待验收。
@@ -90,7 +101,7 @@ v0.7.3 之后的源码新增可跳过的首次引导，以及常规 / 外观 / �
 
 默认来源只读当前用户的 `~/.codex/` 数据库和活动会话事件，不修改 Codex 数据，不发送聊天、批准请求或标记已读。事件解析在内存中处理，诊断输出不包含会话标题或聊天载荷。
 
-**默认会显示标题。** 未发布源码新增标题隐私，覆盖岛、悬停和 VoiceOver；分享屏幕前也可按需隐藏状态岛。审批按钮识别是默认关闭的可选辅助功能，需要用户自行授权；系统权限比应用实际执行的只读检查范围更广。详见 [安全与隐私](../SECURITY.md)。
+**默认会显示标题。** v0.8.0 提供标题隐私，覆盖岛、悬停和 VoiceOver；分享屏幕前也可按需隐藏状态岛。审批按钮识别是默认关闭的可选辅助功能，需要用户自行授权；系统权限比应用实际执行的只读检查范围更广。详见 [安全与隐私](../SECURITY.md)。
 
 <a id="compatibility"></a>
 ## 当前能力与边界
@@ -141,7 +152,7 @@ open build/CodexIslandPreview.app
 <a id="documentation"></a>
 ## 文档
 
-通过 [文档索引](README.md) 查看架构、状态来源、宠物动画、性能基准与发布检查。技术文档目前主要以中文编写，项目介绍提供上方四种语言；未发布源码另支持跟随系统或英语、简繁中文、日语应用界面；v0.7.3 下载包尚不包含此功能。
+通过 [文档索引](README.md) 查看架构、状态来源、宠物动画、性能基准与发布检查。技术文档目前主要以中文编写，项目介绍提供上方四种语言；v0.8.0 支持跟随系统或英语、简繁中文、日语应用界面。
 
 <a id="contributing"></a>
 ## 参与贡献

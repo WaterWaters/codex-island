@@ -8,10 +8,10 @@ Choose a guide below. The README overview is available in four languages; most d
 
 | Guide | What you will find | Language |
 | --- | --- | --- |
-| [First-use and connection guide](getting-started.md) | Onboarding, grouped settings, recovery actions, and redacted diagnostics in unreleased source | 简体中文 |
+| [First-use and connection guide](getting-started.md) | Onboarding, grouped settings, recovery actions, and redacted diagnostics in v0.8.0 | 简体中文 |
 | [Local session source](local-session-source.md) | Read scope, state mapping, compatibility, and diagnostics | 简体中文 |
 | [Pet animation](pet-animation.md) | Runtime assets, timing, fallback, and animation behavior | 简体中文 |
-| [Native state previews](assets/previews/README.md) | Eight state/display examples and reproducible native rendering | English |
+| [Native state previews](assets/previews/README.md) | Sixteen Full/Mini state/display examples and reproducible native rendering | English |
 | [Security and privacy](../SECURITY.md) | Local data, permissions, and vulnerability reporting | 简体中文 |
 
 ## Building and integrating
@@ -55,8 +55,8 @@ When changing the overview:
 4. Keep preview status, signing, source scope, privacy behavior, and unverified capabilities equivalent in every language.
 5. Never turn a deployment target into a tested-platform claim, or a configured CI workflow into a passing-build claim.
 6. Leave private images, session data, and `local/` outside the public file set. Banner artwork is branding, not a screenshot of the running app.
-7. Keep all eight state-preview references and their translated captions / alt text aligned. Describe them as native view renders with synthetic content; do not claim screenshots or hardware validation.
+7. Keep all sixteen state-preview references and their translated captions / alt text aligned. Describe them as native view renders with synthetic content; do not claim screenshots or hardware validation.
 
-Translation review should also check natural phrasing and terminology; structural checks alone do not establish translation quality. Unreleased source separately supports system-following and English, Simplified Chinese, Traditional Chinese, and Japanese app UI. The v0.7.3 download predates this feature.
+Translation review should also check natural phrasing and terminology; structural checks alone do not establish translation quality. v0.8.0 supports system-following and English, Simplified Chinese, Traditional Chinese, and Japanese app UI. The v0.7.3 download predates these additions.
 
 For the reference projects and editorial choices behind the current layout, see [README design notes](readme-design.md).

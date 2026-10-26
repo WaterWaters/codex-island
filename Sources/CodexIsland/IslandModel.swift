@@ -96,7 +96,8 @@ final class IslandModel {
         else if summary.state == .running, summary.runningCount > 1 { extra = L10n.count("summary.running", summary.runningCount) }
         else if summary.state == .ready, summary.primaryCount > 1 { extra = L10n.count("summary.ready", summary.primaryCount) }
         else { extra = nil }
-        return [title, displayDetail, sourceBadge, L10n.format("accessibility.pet", pets.displayName),
+        return [title, displayDetail, sourceBadge,
+            preferences.values.displayMode == .mini ? nil : L10n.format("accessibility.pet", pets.displayName),
             isClickThrough ? L10n.text("临时穿透中") : nil,
             connection == .connected && !approvalUIIsPending ? extra : nil, L10n.text("打开 Codex")]
             .compactMap { $0 }.joined(separator: ", ")

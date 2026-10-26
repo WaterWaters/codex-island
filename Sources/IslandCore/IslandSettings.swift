@@ -1,5 +1,9 @@
 import Foundation
 
+public enum IslandDisplayMode: String, Codable, CaseIterable, Sendable {
+    case full, mini
+}
+
 public struct IslandSettings: Codable, Equatable, Sendable {
     public static let defaultPetID = "codex"
     public var schemaVersion = 1
@@ -19,6 +23,7 @@ public struct IslandSettings: Codable, Equatable, Sendable {
     // Existing v1 colors are custom preferences, including when they match defaults.
     public var appearancePreset: AppearancePreset = .custom
     public var shortcutEnabled = false
+    public var displayMode: IslandDisplayMode = .full
 
     public init() {}
 
@@ -26,6 +31,7 @@ public struct IslandSettings: Codable, Equatable, Sendable {
         case schemaVersion, isVisible, selectedPetID, contentHeight, animationsEnabled
         case neonPrimary, neonSecondary, inputPulse, errorPulse, approvalRecognitionEnabled
         case hideSessionTitle, language, preferredDisplayID, appearancePreset, shortcutEnabled
+        case displayMode
     }
 
     public init(from decoder: any Decoder) throws {
@@ -46,6 +52,7 @@ public struct IslandSettings: Codable, Equatable, Sendable {
         preferredDisplayID = try values.decodeIfPresent(String.self, forKey: .preferredDisplayID)
         appearancePreset = (try? values.decode(String.self, forKey: .appearancePreset)).flatMap(AppearancePreset.init(rawValue:)) ?? .custom
         shortcutEnabled = try values.decodeIfPresent(Bool.self, forKey: .shortcutEnabled) ?? false
+        displayMode = (try? values.decode(String.self, forKey: .displayMode)).flatMap(IslandDisplayMode.init(rawValue:)) ?? .full
     }
 
     public func sanitized() -> Self {

@@ -40,6 +40,17 @@ Codex Island は、現在のローカルセッションのタイトルと作業�
 | <img src="assets/previews/blocked-notched.png" alt="ノッチ付き MacBook のエラー状態" width="440"><br><strong>作業が停止</strong><br>ターンの失敗を、独立したエラー状態で表示。 | <img src="assets/previews/blocked-standard.png" alt="通常の外部ディスプレイのエラー状態" width="440"><br><strong>作業が停止</strong><br>ターンの失敗を、独立したエラー状態で表示。 |
 | <img src="assets/previews/idle-notched.png" alt="ノッチ付き MacBook のアイドル状態" width="440"><br><strong>アイドル</strong><br>Codex の起動中は、静かに画面に残ります。 | <img src="assets/previews/idle-standard.png" alt="通常の外部ディスプレイのアイドル状態" width="440"><br><strong>アイドル</strong><br>Codex の起動中は、静かに画面に残ります。 |
 
+### Mini モード
+
+通常の画面では上部中央に 44 × 22 pt の小さなカプセル、ノッチ付き画面ではノッチの外周に沿ったライトを表示します。メニューバーの **Mini モード**、または **設定 → 外観 → 表示モード** で切り替えます。ポインタを置くと状態を確認でき、クリックで Codex を開きます。Mini では文字とペットを表示せず、フルモードのペットと高さの設定は保持します。タイトル非表示を有効にすると、ホバーと VoiceOver でもタイトルを隠します。
+
+| ノッチ付き画面 | 通常画面 |
+| :---: | :---: |
+| <img src="assets/previews/mini-running-notched.png" alt="Mini · 作業中 · ノッチ付き画面" width="440"><br><strong>作業中</strong> | <img src="assets/previews/mini-running-standard.png" alt="Mini · 作業中 · 通常画面" width="440"><br><strong>作業中</strong> |
+| <img src="assets/previews/mini-needsInput-notched.png" alt="Mini · 回答待ち · ノッチ付き画面" width="440"><br><strong>回答待ち</strong> | <img src="assets/previews/mini-needsInput-standard.png" alt="Mini · 回答待ち · 通常画面" width="440"><br><strong>回答待ち</strong> |
+| <img src="assets/previews/mini-blocked-notched.png" alt="Mini · 作業が停止 · ノッチ付き画面" width="440"><br><strong>作業が停止</strong> | <img src="assets/previews/mini-blocked-standard.png" alt="Mini · 作業が停止 · 通常画面" width="440"><br><strong>作業が停止</strong> |
+| <img src="assets/previews/mini-idle-notched.png" alt="Mini · アイドル · ノッチ付き画面" width="440"><br><strong>アイドル</strong> | <img src="assets/previews/mini-idle-standard.png" alt="Mini · アイドル · 通常画面" width="440"><br><strong>アイドル</strong> |
+
 <a id="features"></a>
 ## ウインドウの切り替えを、少し減らす
 
@@ -66,9 +77,9 @@ open build/CodexIsland.app
 
 起動後はメニューバーから操作できます。Codex の起動中はアイドル状態でもアイランドが表示され、Codex を終了すると非表示になります。メニューバーから手動で表示・非表示を切り替えることもできます。
 
-v0.7.3 以降のソースには、スキップできる初回ガイドと、一般・外観・接続・実験機能の設定が追加されています。接続ページには次の手順と、個人情報を除いた診断のコピーがあります。これらの追加機能は v0.7.3 の配布物には含まれません。[初回ガイドと接続確認](getting-started.md)。
+v0.8.0 には、スキップできる初回ガイドと、一般・外観・接続・実験機能の設定が追加されています。接続ページには次の手順と、個人情報を除いた診断のコピーがあります。[初回ガイドと接続確認](getting-started.md)。
 
-未リリースのソースには、タイトルの非表示、任意のログイン時起動、手動で有効にする ⌃⌥⌘I 表示切替、固定ディスプレイの再接続復元、標準・静か・高コントラストの外観もあります。設定はすぐに反映され、ログイン許可とショートカットの競合はシステムの結果を表示します。
+v0.8.0 には、タイトルの非表示、任意のログイン時起動、手動で有効にする ⌃⌥⌘I 表示切替、固定ディスプレイの再接続復元、標準・静か・高コントラストの外観もあります。設定はすぐに反映され、ログイン許可とショートカットの競合はシステムの結果を表示します。
 
 > [!NOTE]
 > 現在のアプリはローカル利用向けの ad-hoc 署名で、公証されていません。ビルド対象は現在の CPU アーキテクチャです。Apple Silicon / Swift 6.4 では検証済みですが、macOS 14 と Intel での実機動作は未検証です。
@@ -90,7 +101,7 @@ v0.7.3 以降のソースには、スキップできる初回ガイドと、一�
 
 標準のデータソースは、現在のユーザーの `~/.codex/` 内のデータベースと進行中のセッションイベントを読み取ります。Codex のデータ変更、メッセージ送信、リクエストの承認、既読への変更は行いません。イベントはメモリー上で処理し、診断出力にはタイトルや会話内容を含めません。
 
-**タイトルは初期状態で表示されます。** 未リリースのソースでは、アイランド・ホバー・VoiceOver のタイトルをまとめて隠せます。画面共有時はアイランド自体も非表示にできます。承認ボタンの認識は、初期状態では無効のオプション機能で、アクセシビリティ権限の許可が必要です。OS が与える権限は、このアプリが実行する読み取り専用の確認より広いものです。詳細は [セキュリティとプライバシー](../SECURITY.md) を参照してください。
+**タイトルは初期状態で表示されます。** v0.8.0 では、アイランド・ホバー・VoiceOver のタイトルをまとめて隠せます。画面共有時はアイランド自体も非表示にできます。承認ボタンの認識は、初期状態では無効のオプション機能で、アクセシビリティ権限の許可が必要です。OS が与える権限は、このアプリが実行する読み取り専用の確認より広いものです。詳細は [セキュリティとプライバシー](../SECURITY.md) を参照してください。
 
 <a id="compatibility"></a>
 ## 現在の対応範囲
@@ -141,7 +152,7 @@ open build/CodexIslandPreview.app
 <a id="documentation"></a>
 ## ドキュメント
 
-アーキテクチャ、データソース、ペットのアニメーション、ベンチマーク、リリース確認は [ドキュメント一覧](README.md) から参照できます。技術ガイドは現在主に中国語で、プロジェクト紹介は上記の 4 言語で提供しています。未リリースのソースでは、システム設定に従うほか、英語・簡体字中国語・繁体字中国語・日本語の UI を選択できます。v0.7.3 の配布版には含まれません。
+アーキテクチャ、データソース、ペットのアニメーション、ベンチマーク、リリース確認は [ドキュメント一覧](README.md) から参照できます。技術ガイドは現在主に中国語で、プロジェクト紹介は上記の 4 言語で提供しています。v0.8.0 では、システム設定に従うほか、英語・簡体字中国語・繁体字中国語・日本語の UI を選択できます。
 
 <a id="contributing"></a>
 ## 貢献

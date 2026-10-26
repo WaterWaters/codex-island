@@ -23,13 +23,14 @@ enum PreviewRenderer {
         return model
     }
 
-    static func renderGallery(to directory: URL) throws {
+    static func renderGallery(to directory: URL, displayMode: IslandDisplayMode = .full) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for state in galleryStates {
             for notched in [true, false] {
                 let model = sampleModel(state: state)
-                let name = "\(state.rawValue)-\(notched ? "notched" : "standard").png"
-                try write(DesktopPreview(state: state, model: model, notched: notched),
+                model.preferences.values.displayMode = displayMode
+                let name = "\(displayMode == .mini ? "mini-" : "")\(state.rawValue)-\(notched ? "notched" : "standard").png"
+                try write(DesktopPreview(state: state, model: model, notched: notched, displayMode: displayMode),
                           to: directory.appendingPathComponent(name))
             }
         }
@@ -73,6 +74,7 @@ private struct DesktopPreview: View {
     let state: WorkState
     let model: IslandModel
     let notched: Bool
+    let displayMode: IslandDisplayMode
 
     private var label: String {
         switch state {
@@ -88,7 +90,7 @@ private struct DesktopPreview: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 9) {
                 Circle().fill(IslandPalette.tint(for: state)).frame(width: 7, height: 7)
-                Text(label).font(.system(size: 15, weight: .semibold))
+                Text((displayMode == .mini ? "Mini · " : "") + label).font(.system(size: 15, weight: .semibold))
                 Spacer()
                 Text(notched ? "MacBook · Notched display" : "External · Standard display")
                     .font(.system(size: 11)).foregroundStyle(.white.opacity(0.55))
@@ -113,8 +115,9 @@ private struct DesktopPreview: View {
                 .background(.black.opacity(0.18))
                 IslandView(model: model,
                            geometry: .layout(screenWidth: 600, notchWidth: notched ? 180 : 0,
-                                             notchHeight: notched ? 32 : 0, expanded: true), openCodex: {})
-                    .offset(y: notched ? 0 : 36)
+                                             notchHeight: notched ? 32 : 0, expanded: true,
+                                             displayMode: displayMode), openCodex: {})
+                    .offset(y: notched || displayMode == .mini ? 0 : 36)
                 if notched {
                     UnevenRoundedRectangle(bottomLeadingRadius: 8, bottomTrailingRadius: 8)
                         .fill(.black).frame(width: 180, height: 32)

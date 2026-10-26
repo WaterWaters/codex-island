@@ -176,3 +176,8 @@
 "pet.synced_partial" = "动画时长已同步 · Codex %@ · 部分自定义宠物缓存暂不可用";
 "pet.compatibility_partial" = "使用兼容动画时长 · 部分自定义宠物缓存暂不可用";
 "island.detail" = "%@ · %@";
+
+"settings.display_mode" = "显示模式";
+"settings.mode_full" = "完整模式";
+"settings.mode_mini" = "Mini 模式";
+"settings.mini_hint" = "Mini 在普通屏显示 44 × 22 pt 短胶囊，刘海屏自动贴合刘海外缘。悬停查看状态，点击打开 Codex；宠物与高度用于完整模式。";

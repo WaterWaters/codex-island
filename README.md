@@ -29,7 +29,7 @@ Codex Island keeps the current local session title and activity near the top of 
 <a id="previews"></a>
 ## See the island in action
 
-Four everyday states, on a MacBook with a notch and a standard external display. The island keeps the session title above the current activity and uses a distinct outline for each state.
+Four everyday states, on a MacBook with a notch and a standard external display. Full mode keeps the session title above the current activity and uses a distinct outline for each state.
 
 These are native SwiftUI view renders with synthetic content, showing the current Simplified Chinese UI and the asset-free fallback cat symbol. They are illustrative screen compositions, not desktop screenshots or hardware validation. [How the previews are made](docs/assets/previews/README.md).
 
@@ -39,6 +39,17 @@ These are native SwiftUI view renders with synthetic content, showing the curren
 | <img src="docs/assets/previews/needsInput-notched.png" alt="Input reminder on a notched MacBook display" width="440"><br><strong>Needs your input</strong><br>A clear signal when an answer is needed. | <img src="docs/assets/previews/needsInput-standard.png" alt="Input reminder on a standard external display" width="440"><br><strong>Needs your input</strong><br>A clear signal when an answer is needed.  |
 | <img src="docs/assets/previews/blocked-notched.png" alt="Blocked work on a notched MacBook display" width="440"><br><strong>Work blocked</strong><br>A distinct error state when a turn fails. | <img src="docs/assets/previews/blocked-standard.png" alt="Blocked work on a standard external display" width="440"><br><strong>Work blocked</strong><br>A distinct error state when a turn fails. |
 | <img src="docs/assets/previews/idle-notched.png" alt="Idle island on a notched MacBook display" width="440"><br><strong>Idle</strong><br>A quiet presence while Codex is open. | <img src="docs/assets/previews/idle-standard.png" alt="Idle island on a standard external display" width="440"><br><strong>Idle</strong><br>A quiet presence while Codex is open. |
+
+### Mini mode
+
+A quieter presence: a 44 × 22 pt capsule on standard displays, or a light outline that automatically follows the notch. Choose **Mini mode** in the menu bar or **Settings → Appearance → Display mode**. Hover for status and click to open Codex. Titles and pets stay hidden in Mini; Full mode keeps your pet and height preferences. Enable title privacy to also hide titles from hover text and VoiceOver.
+
+| Notched display | Standard display |
+| :---: | :---: |
+| <img src="docs/assets/previews/mini-running-notched.png" alt="Mini · Working · Notched display" width="440"><br><strong>Working</strong> | <img src="docs/assets/previews/mini-running-standard.png" alt="Mini · Working · Standard display" width="440"><br><strong>Working</strong> |
+| <img src="docs/assets/previews/mini-needsInput-notched.png" alt="Mini · Needs your input · Notched display" width="440"><br><strong>Needs your input</strong> | <img src="docs/assets/previews/mini-needsInput-standard.png" alt="Mini · Needs your input · Standard display" width="440"><br><strong>Needs your input</strong> |
+| <img src="docs/assets/previews/mini-blocked-notched.png" alt="Mini · Work blocked · Notched display" width="440"><br><strong>Work blocked</strong> | <img src="docs/assets/previews/mini-blocked-standard.png" alt="Mini · Work blocked · Standard display" width="440"><br><strong>Work blocked</strong> |
+| <img src="docs/assets/previews/mini-idle-notched.png" alt="Mini · Idle · Notched display" width="440"><br><strong>Idle</strong> | <img src="docs/assets/previews/mini-idle-standard.png" alt="Mini · Idle · Standard display" width="440"><br><strong>Idle</strong> |
 
 <a id="features"></a>
 ## A little less window switching
@@ -66,9 +77,9 @@ open build/CodexIsland.app
 
 The app appears in your menu bar. While Codex is running, the island stays visible even when idle; it hides when Codex exits. Show or hide it manually from the menu bar.
 
-Source builds after v0.7.3 add a skippable first-use guide and General / Appearance / Connection / Experimental settings. The Connection tab explains the next step and can copy redacted diagnostics. These additions are not in the v0.7.3 download. [First-use and connection guide](docs/getting-started.md).
+v0.8.0 adds a skippable first-use guide and General / Appearance / Connection / Experimental settings. The Connection tab explains the next step and can copy redacted diagnostics. [First-use and connection guide](docs/getting-started.md).
 
-Unreleased source adds title privacy, optional launch at login, an opt-in ⌃⌥⌘I visibility shortcut, pinned-display recovery, and standard / quiet / high-contrast appearance presets. Settings changes take effect immediately. Login approval and shortcut conflicts display their actual system result.
+v0.8.0 adds title privacy, optional launch at login, an opt-in ⌃⌥⌘I visibility shortcut, pinned-display recovery, and standard / quiet / high-contrast appearance presets. Settings changes take effect immediately. Login approval and shortcut conflicts display their actual system result.
 
 > [!NOTE]
 > The current package is signed ad hoc for local use and is not notarized. It builds for your current CPU architecture. Apple Silicon with Swift 6.4 has been tested; macOS 14 and Intel runtime validation are still pending.
@@ -90,7 +101,7 @@ The island shows a moving outline while working, an input-colored pulse for reco
 
 The default source reads the current user's `~/.codex/` databases and active session events. It does not modify Codex data, send chat messages, approve requests, or mark anything read. Parsed events are processed in memory; diagnostic output excludes session titles and conversation payloads.
 
-**Titles are visible by default.** Unreleased source adds title privacy covering the island, hover text and VoiceOver; you can also hide the island before sharing. Approval-button recognition is an optional, off-by-default Accessibility feature; the OS permission is broader than the read-only checks this app performs. See [Security and privacy](SECURITY.md) for details.
+**Titles are visible by default.** v0.8.0 adds title privacy covering the island, hover text and VoiceOver; you can also hide the island before sharing. Approval-button recognition is an optional, off-by-default Accessibility feature; the OS permission is broader than the read-only checks this app performs. See [Security and privacy](SECURITY.md) for details.
 
 <a id="compatibility"></a>
 ## What to expect
@@ -141,7 +152,7 @@ For a custom producer, see the [explicit status-file contract](docs/status-input
 <a id="documentation"></a>
 ## Documentation
 
-Start with the [documentation index](docs/README.md) for architecture, source behavior, pet animation, benchmarks, and release checks. Most technical guides are currently written in Chinese; the project overview is available in the four languages linked above. Unreleased source also supports system-following or English, Simplified Chinese, Traditional Chinese, and Japanese app UI; v0.7.3 downloads do not.
+Start with the [documentation index](docs/README.md) for architecture, source behavior, pet animation, benchmarks, and release checks. Most technical guides are currently written in Chinese; the project overview is available in the four languages linked above. v0.8.0 also supports system-following or English, Simplified Chinese, Traditional Chinese, and Japanese app UI.
 
 <a id="contributing"></a>
 ## Contributing

@@ -81,6 +81,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         let visibility = add(L10n.text("显示岛"), to: menu, action: #selector(toggleVisibility))
         visibility.state = model.preferences.values.isVisible ? .on : .off
+        let mini = add(L10n.value("settings.mode_mini"), to: menu, action: #selector(toggleMiniMode))
+        mini.state = model.preferences.values.displayMode == .mini ? .on : .off
         let pets = NSMenu(title: L10n.text("宠物"))
         if model.pets.pets.isEmpty { add(L10n.text("暂无可用宠物"), to: pets).isEnabled = false }
         for pet in model.pets.pets {
@@ -112,6 +114,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         countdownItem?.title = remaining > 0 ? L10n.count("menu.remaining", remaining) : L10n.text("半透明穿透 30 秒")
     }
     @objc private func toggleVisibility() { model.preferences.values.isVisible.toggle() }
+    @objc private func toggleMiniMode() {
+        model.preferences.values.displayMode = model.preferences.values.displayMode == .mini ? .full : .mini
+    }
     @objc private func toggleMotion() {
         model.preferences.values.setAnimationsEnabled(!model.preferences.values.animationsEnabled)
     }

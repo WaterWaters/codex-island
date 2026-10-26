@@ -176,3 +176,8 @@
 "pet.synced_partial" = "アニメーション時間を同期済み · Codex %@ · 一部のカスタムペットのキャッシュを利用できません";
 "pet.compatibility_partial" = "互換再生時間を使用中 · 一部のカスタムペットのキャッシュを利用できません";
 "island.detail" = "%@ · %@";
+
+"settings.display_mode" = "表示モード";
+"settings.mode_full" = "フルモード";
+"settings.mode_mini" = "Mini モード";
+"settings.mini_hint" = "通常の画面では 44 × 22 pt の小さなカプセル、ノッチ付き画面ではノッチの外周に自動で沿います。ポインタで状態を確認し、クリックで Codex を開きます。ペットと高さはフルモードに適用されます。";

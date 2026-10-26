@@ -137,6 +137,12 @@ private struct AppearanceSettingsView: View {
         @Bindable var preferences = model.preferences
         Form {
             Section(L10n.text("岛与显示")) {
+                Picker(L10n.value("settings.display_mode"), selection: $preferences.values.displayMode) {
+                    Text(L10n.value("settings.mode_full")).tag(IslandDisplayMode.full)
+                    Text(L10n.value("settings.mode_mini")).tag(IslandDisplayMode.mini)
+                }
+                Text(L10n.value("settings.mini_hint"))
+                    .font(.caption).foregroundStyle(.secondary)
                 Picker(L10n.text("显示器"), selection: $preferences.values.preferredDisplayID) {
                     Text(L10n.text("主显示器")).tag(String?.none)
                     ForEach(displays, id: \.id) { display in
@@ -158,15 +164,19 @@ private struct AppearanceSettingsView: View {
                 }
                 IslandView(model: model, geometry: IslandGeometry.layout(screenWidth: 1440,
                     notchWidth: 0, notchHeight: 0, expanded: true,
-                    contentHeight: preferences.values.contentHeight), openCodex: {})
+                    contentHeight: preferences.values.contentHeight,
+                    displayMode: preferences.values.displayMode), openCodex: {})
                     .allowsHitTesting(false).accessibilityHidden(true)
-                    .frame(height: preferences.values.contentHeight + 10)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: preferences.values.displayMode == .mini ? 38 : preferences.values.contentHeight + 10)
 
-                LabeledContent(L10n.text("岛高度"), value: "\(Int(preferences.values.contentHeight)) pt")
-                Slider(value: $preferences.values.contentHeight, in: 60...140, step: 2)
-                    .accessibilityLabel(L10n.text("岛高度"))
-                Text(L10n.text("调整刘海下方的内容高度，修改即时生效。"))
-                    .font(.caption).foregroundStyle(.secondary)
+                if preferences.values.displayMode == .full {
+                    LabeledContent(L10n.text("岛高度"), value: "\(Int(preferences.values.contentHeight)) pt")
+                    Slider(value: $preferences.values.contentHeight, in: 60...140, step: 2)
+                        .accessibilityLabel(L10n.text("岛高度"))
+                    Text(L10n.text("调整刘海下方的内容高度，修改即时生效。"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section(L10n.text("宠物")) {
                 if model.pets.pets.isEmpty {

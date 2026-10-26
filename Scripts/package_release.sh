@@ -65,6 +65,9 @@ A native macOS status island for local Codex sessions, with activity, recognized
 
 ### Changes
 
+- Add Mini mode: a 44 × 22 pt top-center capsule with an activity glyph on standard displays, or lights following the notch using macOS safe-area and auxiliary-area geometry. Switch in the menu or Appearance settings; existing preferences default to Full mode.
+- Keep status and privacy-aware hover/accessibility text in Mini mode, hide the pet and text rows, and pass clicks through transparent corners and the camera housing. Motion preferences still apply.
+- Verify exact rollout session/turn identity before associating mismatched history records; ambiguous identity stays unavailable rather than reporting false idle activity.
 - Add a skippable, repeatable first-use guide and grouped settings with actionable connection status, manual resynchronization, and redacted diagnostic copying.
 - Support system-following or English, Simplified Chinese, Traditional Chinese, and Japanese UI, plus title privacy across visible and accessibility surfaces.
 - Add optional launch at login with real system status, an opt-in Control-Option-Command-I visibility shortcut with conflict reporting, pinned displays with fallback/reconnection, and appearance presets.
@@ -93,7 +96,8 @@ Open the DMG and drag CodexIsland.app to Applications, or unzip the ZIP. Launch 
 - Event parsing validates large records incrementally and retains a bounded state/question projection. Malformed records or structure/semantic budget limits still cause limited synchronization; incomplete question state is not treated as complete.
 - Private Codex database/asset formats can change. Complete unread state, remote/cloud chats and full pet-state parity are unsupported.
 - Native gallery rasterization is a separate opt-in desktop integration check; headless Intel rendering is unverified.
-- Approval-button recognition is opt-in and experimental. Fullscreen/Spaces combinations and 30-minute whole-app performance remain under validation.
+- Approval-button recognition is opt-in and experimental. Physical notch/display combinations, hot-plugging, fullscreen/Spaces, login and sleep/lock still need broader real-device validation. Mini screenshots are synthetic native view renders.
+- Performance measurement, budgets and optimization are deferred to a separate effort; earlier baselines do not certify the new Mini mode.
 - No personal pet images, private session data, or signing credentials are included.
 
 See the repository README, security policy, changelog and compatibility documentation for details. This independent project is not affiliated with OpenAI.

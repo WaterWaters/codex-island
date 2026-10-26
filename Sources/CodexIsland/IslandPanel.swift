@@ -60,17 +60,15 @@ final class IslandPanelController {
         guard model.shouldShow,
               let screen = DisplayCatalog.screen(preferredID: model.preferences.values.preferredDisplayID)
         else { model.isHovered = false; hide(); return }
-        let inset = screen.safeAreaInsets.top
-        let left = screen.auxiliaryTopLeftArea
-        let right = screen.auxiliaryTopRightArea
-        let notchWidth: CGFloat
-        if let left, let right, inset > 0 { notchWidth = max(0, right.minX - left.maxX) }
-        else { notchWidth = 0 }
-        let next = IslandGeometry.layout(screenWidth: screen.frame.width, notchWidth: notchWidth,
-                                         notchHeight: inset, expanded: model.isExpanded,
-                                         contentHeight: model.preferences.values.contentHeight)
+        let cutout = DisplayCutout.resolve(screenFrame: screen.frame, safeAreaTop: screen.safeAreaInsets.top,
+                                          leftArea: screen.auxiliaryTopLeftArea, rightArea: screen.auxiliaryTopRightArea)
+        let next = IslandGeometry.layout(screenWidth: screen.frame.width, notchWidth: cutout?.width ?? 0,
+                                         notchHeight: cutout?.height ?? 0, expanded: model.isExpanded,
+                                         contentHeight: model.preferences.values.contentHeight,
+                                         displayMode: model.preferences.values.displayMode)
         let rect = DisplayPlacementPolicy.frame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame,
-                                               geometry: next, backingScale: screen.backingScaleFactor)
+                                               geometry: next, backingScale: screen.backingScaleFactor,
+                                               notchCenterX: cutout?.centerX)
         // Keep the current view alive across duplicate snapshots (including animation ticks).
         let changed = geometry != next
         let animate = changed && panel.isVisible && !model.motionPaused
@@ -89,7 +87,7 @@ final class IslandPanelController {
                 panel.contentView = host
             }
         }
-        panel.level = next.hasNotch ? .statusBar : .floating
+        panel.level = next.hasNotch || next.displayMode == .mini ? .statusBar : .floating
         if animate {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.28
@@ -110,12 +108,7 @@ final class IslandPanelController {
         panel.alphaValue = 1
         let point = NSEvent.mouseLocation
         let local = NSPoint(x: point.x - panel.frame.minX, y: panel.frame.maxY - point.y)
-        var visible = IslandShape(notched: geometry.hasNotch)
-            .path(in: CGRect(origin: .zero, size: panel.frame.size)).contains(local)
-        if geometry.hasNotch,
-           abs(point.x - panel.frame.midX) < geometry.notchWidth / 2,
-           local.y < geometry.notchHeight { visible = false }
-        panel.ignoresMouseEvents = !visible
+        panel.ignoresMouseEvents = !IslandHitRegion.contains(local, geometry: geometry)
     }
 
     func hide() {
