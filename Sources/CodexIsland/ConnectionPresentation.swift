@@ -13,7 +13,7 @@ enum SourceFailureReason: String, Codable, Sendable {
 }
 
 struct ConnectionPresentation {
-    enum Status: String, Codable { case checking, notInstalled, notRunning, missingLocalData, incompatible, temporaryFailure, eventsLimited, synchronizing, connected, demo, external }
+    enum Status: String, Codable { case checking, notInstalled, notRunning, missingLocalData, incompatible, temporaryFailure, identityLimited, eventsLimited, synchronizing, connected, demo, external }
     let status: Status
 
     init(connection: ConnectionState, health: FeedHealth?, isDemo: Bool = false, isExternal: Bool = false) {
@@ -27,7 +27,8 @@ struct ConnectionPresentation {
         case .unsupported: .incompatible
         case .unavailable: .temporaryFailure
         case .connected:
-            if let health, health.degradedThreads > 0 { .eventsLimited }
+            if let health, health.unresolvedIdentity { .identityLimited }
+            else if let health, health.degradedThreads > 0 { .eventsLimited }
             else if let health, !health.caughtUp { .synchronizing }
             else { .connected }
         }
@@ -41,6 +42,7 @@ struct ConnectionPresentation {
         case .missingLocalData: SetupText.resource("connection.missing_data.title", "尚未找到本机会话数据")
         case .incompatible: SetupText.resource("connection.incompatible.title", "本机来源暂不兼容")
         case .temporaryFailure: SetupText.resource("connection.temporary_failure.title", "暂时无法读取状态")
+        case .identityLimited: SetupText.resource("connection.identity_limited.title", "已连接 · 部分状态待确认")
         case .eventsLimited: SetupText.resource("connection.events_limited.title", "已连接 · 事件同步受限")
         case .synchronizing: SetupText.resource("connection.synchronizing.title", "已连接 · 正在追平事件")
         case .connected: SetupText.resource("connection.connected.title", "已连接本机 Codex")
@@ -57,6 +59,7 @@ struct ConnectionPresentation {
         case .missingLocalData: SetupText.resource("connection.missing_data.next", "请先在 Codex 中打开或创建一个本机会话。若使用自定义数据目录，请确认启动时的 CODEX_HOME 配置，再重新同步。")
         case .incompatible: SetupText.resource("connection.incompatible.next", "当前本地数据结构不受适配器支持。请检查 Codex Island 更新；可复制脱敏诊断帮助定位。")
         case .temporaryFailure: SetupText.resource("connection.temporary_failure.next", "应用会自动重试。请确认 Codex 可正常使用；若仍失败，可重新同步或复制脱敏诊断。")
+        case .identityLimited: SetupText.resource("connection.identity_limited.next", "暂时无法确认部分会话状态。已确认的活动仍会显示，应用会自动重试；也可以重新同步。未确认的状态不代表空闲。")
         case .eventsLimited: SetupText.resource("connection.events_limited.next", "基础活动仍可显示，但问答事件尚未完整追平。应用正在有界重试；可重新同步。受限期间不将问答状态视为完整。")
         case .synchronizing: SetupText.resource("connection.synchronizing.next", "正在增量读取事件。请稍候，追平前不将问答状态视为完整。")
         case .connected: SetupText.resource("connection.connected.next", "连接正常。状态会自动刷新；若与 Codex 不一致，可重新同步。")
@@ -88,6 +91,7 @@ struct PrivacyDiagnostics: Encodable {
     let caughtUp: Bool?
     let degradedThreads: Int?
     let retryingThreads: Int?
+    let unresolvedIdentity: Bool?
 
     init(islandVersion: String?, codexVersion: String?, presentation: ConnectionPresentation,
          reason: SourceFailureReason?, health: FeedHealth?, isDemo: Bool, isExternal: Bool) {
@@ -99,6 +103,7 @@ struct PrivacyDiagnostics: Encodable {
         caughtUp = health?.caughtUp
         degradedThreads = health.map { max(0, $0.degradedThreads) }
         retryingThreads = health.map { max(0, $0.retryingThreads) }
+        unresolvedIdentity = health?.unresolvedIdentity
     }
 
     static func safeVersion(_ value: String?) -> String {

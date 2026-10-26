@@ -31,6 +31,7 @@
 "connection.missing_data.title" = "ローカルのセッションデータがまだありません";
 "connection.incompatible.title" = "ローカルのデータ形式は未対応です";
 "connection.temporary_failure.title" = "状態を一時的に読み取れません";
+"connection.identity_limited.title" = "接続済み · 一部の状態は未確認";
 "connection.events_limited.title" = "接続済み · イベント同期に制限あり";
 "connection.synchronizing.title" = "接続済み · イベントを同期中";
 "connection.connected.title" = "ローカルの Codex に接続済み";
@@ -42,6 +43,7 @@
 "connection.missing_data.next" = "Codex でローカルセッションを開くか作成してください。独自のデータディレクトリを使う場合は、起動時の CODEX_HOME 設定を確認してから再同期してください。";
 "connection.incompatible.next" = "現在のローカルデータ構造は未対応です。Codex Island の更新を確認してください。匿名化した診断情報も調査に利用できます。";
 "connection.temporary_failure.next" = "自動的に再試行します。Codex が正常に使えることを確認してください。解決しない場合は再同期するか、匿名化した診断情報をコピーしてください。";
+"connection.identity_limited.next" = "一部のセッションの状態を一時的に確認できません。確認済みの活動は引き続き表示され、自動的に再試行します。手動で再同期することもできます。未確認は待機中を意味しません。";
 "connection.events_limited.next" = "基本の活動は表示できますが、入力イベントの同期は未完了です。負荷を制限しながら再試行しています。再同期も可能です。制限中の入力待ち状態は完全な情報ではありません。";
 "connection.synchronizing.next" = "イベントを段階的に読み込んでいます。同期が完了するまで、入力待ちの情報は不完全な場合があります。";
 "connection.connected.next" = "正常に接続しています。状態は自動更新されます。Codex と異なる場合は再同期してください。";

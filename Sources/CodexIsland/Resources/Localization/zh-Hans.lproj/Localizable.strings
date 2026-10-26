@@ -31,6 +31,7 @@
 "connection.missing_data.title" = "尚未找到本机会话数据";
 "connection.incompatible.title" = "本机来源暂不兼容";
 "connection.temporary_failure.title" = "暂时无法读取状态";
+"connection.identity_limited.title" = "已连接 · 部分状态待确认";
 "connection.events_limited.title" = "已连接 · 事件同步受限";
 "connection.synchronizing.title" = "已连接 · 正在追平事件";
 "connection.connected.title" = "已连接本机 Codex";
@@ -42,6 +43,7 @@
 "connection.missing_data.next" = "请先在 Codex 中打开或创建一个本机会话。若使用自定义数据目录，请确认启动时的 CODEX_HOME 配置，再重新同步。";
 "connection.incompatible.next" = "当前本地数据结构不受适配器支持。请检查 Codex Island 更新；可复制脱敏诊断帮助定位。";
 "connection.temporary_failure.next" = "应用会自动重试。请确认 Codex 可正常使用；若仍失败，可重新同步或复制脱敏诊断。";
+"connection.identity_limited.next" = "暂时无法确认部分会话状态。已确认的活动仍会显示，应用会自动重试；也可以重新同步。未确认的状态不代表空闲。";
 "connection.events_limited.next" = "基础活动仍可显示，但问答事件尚未完整追平。应用正在有界重试；可重新同步。受限期间不将问答状态视为完整。";
 "connection.synchronizing.next" = "正在增量读取事件。请稍候，追平前不将问答状态视为完整。";
 "connection.connected.next" = "连接正常。状态会自动刷新；若与 Codex 不一致，可重新同步。";

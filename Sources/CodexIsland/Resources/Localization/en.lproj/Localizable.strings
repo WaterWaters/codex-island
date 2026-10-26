@@ -31,6 +31,7 @@
 "connection.missing_data.title" = "Local Session Data Not Found Yet";
 "connection.incompatible.title" = "Local Source Is Incompatible";
 "connection.temporary_failure.title" = "Temporarily Unable to Read Status";
+"connection.identity_limited.title" = "Connected · Some Status Unconfirmed";
 "connection.events_limited.title" = "Connected · Event Sync Limited";
 "connection.synchronizing.title" = "Connected · Catching Up with Events";
 "connection.connected.title" = "Connected to Local Codex";
@@ -42,6 +43,7 @@
 "connection.missing_data.next" = "Open or create a local session in Codex. If you use a custom data directory, check CODEX_HOME in the launch environment before resynchronizing.";
 "connection.incompatible.next" = "This local data structure is not supported by the adapter. Check for a Codex Island update; copy private diagnostics to help investigate.";
 "connection.temporary_failure.next" = "The app will retry automatically. Check that Codex is usable. If the issue persists, resynchronize or copy private diagnostics.";
+"connection.identity_limited.next" = "Some session states cannot be confirmed right now. Confirmed activity will still be shown, and the app will retry automatically. You can also resynchronize. Unconfirmed status does not mean idle.";
 "connection.events_limited.next" = "Basic activity is available, but input events are not fully caught up. Bounded retries are in progress; you can resynchronize. Input status is incomplete while limited.";
 "connection.synchronizing.next" = "Reading events incrementally. Please wait; input status is incomplete until caught up.";
 "connection.connected.next" = "Connection is healthy. Status refreshes automatically. Resynchronize if it differs from Codex.";

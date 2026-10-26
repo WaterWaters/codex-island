@@ -18,6 +18,7 @@ enum FeedProbe {
                 let output: [String: Any] = ["source": observation.snapshot.source, "trackedThreads": observation.trackedThreads,
                     "activeThreads": observation.activeThreads, "caughtUp": observation.caughtUp,
                     "degradedThreads": observation.degradedThreads, "retryingThreads": observation.retryingThreads,
+                    "unresolvedIdentity": observation.unresolvedIdentity,
                     "supportsUnread": observation.supportsUnread, "petParityVerified": false, "states": states,
                     "activity": observation.snapshot.activity?.rawValue ?? "unknown",
                     "hasSessionTitle": observation.snapshot.displaySessionTitle != nil]

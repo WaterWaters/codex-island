@@ -45,7 +45,7 @@ final class IslandModel {
             case .needsInput: SessionActivity.needsInput.title
             case .blocked: SessionActivity.failed.title
             case .ready: summary.state.title
-            case .idle: SessionActivity.idle.title
+            case .idle: localFeedHealth?.unresolvedIdentity == true ? "状态暂不可用" : SessionActivity.idle.title
             case .running: (activity ?? .working).title
             }
         case .connecting: "同步中"
@@ -74,8 +74,9 @@ final class IslandModel {
         var message = detail ?? L10n.text("同步中")
         if isDemo { message = L10n.format("island.detail", L10n.text("演示"), message) }
         else if isExternalFeed { message = L10n.format("island.detail", L10n.text("外部"), message) }
-        if isLocalFeed, connection == .connected, !approvalUIIsPending, let health = localFeedHealth {
-            if health.degradedThreads > 0 { message = L10n.format("island.detail", message, L10n.text("同步受限")) }
+        if isLocalFeed, connection == .connected, let health = localFeedHealth,
+           health.unresolvedIdentity || !approvalUIIsPending {
+            if health.unresolvedIdentity || health.degradedThreads > 0 { message = L10n.format("island.detail", message, L10n.text("同步受限")) }
             else if !health.caughtUp { message = L10n.format("island.detail", message, L10n.text("同步中")) }
         }
         return message

@@ -10,11 +10,14 @@ public struct FeedHealth: Equatable, Sendable {
     public let caughtUp: Bool
     public let degradedThreads: Int
     public let retryingThreads: Int
+    public let unresolvedIdentity: Bool
 
-    public init(caughtUp: Bool, degradedThreads: Int = 0, retryingThreads: Int = 0) {
+    public init(caughtUp: Bool, degradedThreads: Int = 0, retryingThreads: Int = 0,
+                unresolvedIdentity: Bool = false) {
         self.caughtUp = caughtUp
         self.degradedThreads = degradedThreads
         self.retryingThreads = retryingThreads
+        self.unresolvedIdentity = unresolvedIdentity
     }
 }
 
@@ -25,9 +28,11 @@ public struct FeedObservation: Sendable {
     public let caughtUp: Bool
     public let degradedThreads: Int
     public let retryingThreads: Int
+    public let unresolvedIdentity: Bool
     public let supportsUnread = false
     public var health: FeedHealth {
-        FeedHealth(caughtUp: caughtUp, degradedThreads: degradedThreads, retryingThreads: retryingThreads)
+        FeedHealth(caughtUp: caughtUp, degradedThreads: degradedThreads, retryingThreads: retryingThreads,
+                   unresolvedIdentity: unresolvedIdentity)
     }
 }
 
@@ -41,6 +46,7 @@ public actor LocalSessionFeed {
     private var cursors: [String: RolloutCursor] = [:]
     private var retries: [String: RolloutRetry] = [:]
     private var focusedID: String?
+    private var bindings = HistoryBindingResolver()
 
     public init(home: URL? = nil) {
         if let home { configuration = .success(FeedConfiguration(home: home)) }
@@ -56,6 +62,7 @@ public actor LocalSessionFeed {
         cursors.removeAll()
         retries.removeAll()
         focusedID = nil
+        bindings.reset()
     }
 
     public func read() throws -> FeedObservation {
@@ -66,11 +73,22 @@ public actor LocalSessionFeed {
     // or changing the wall clock used for snapshot timestamps and turn history.
     func read(at now: ContinuousClock.Instant) throws -> FeedObservation {
         let home = try configuration.get().home
-        let rows = try StatusDatabase.read(home: home)
+        let canonical = try StatusDatabase.read(home: home)
+        let resolution: BindingResolution
+        do {
+            let candidates = try StatusDatabase.bindingCandidates(home: home, since: startedAt.timeIntervalSince1970)
+            resolution = bindings.resolve(candidates, canonical: canonical, home: home, now: now)
+        } catch {
+            // A supplemental identity lookup must not erase healthy direct rows.
+            resolution = BindingResolution(rows: canonical, files: [:], uncertain: true)
+        }
+        let rows = resolution.rows
         guard rows.filter({ $0.status == "inProgress" }).count <= 32 else { throw FeedError.oversized }
         var activities: [WorkState] = []
         var activeIDs = Set<String>()
+        let cursorIDs = Set(rows.filter { $0.status == "inProgress" }.map(\.id))
         var caughtUp = true
+        var unresolvedIdentity = resolution.uncertain
         var candidates: [(row: SessionRow, state: WorkState, activity: SessionActivity)] = []
         for row in rows {
             switch row.status {
@@ -82,21 +100,39 @@ public actor LocalSessionFeed {
                     cursor = RolloutCursor()
                 }
                 do {
+                    if let file = resolution.files[row.id] { try file.requireUnchanged() }
                     if let retry = retries[row.id], now < retry.nextAttempt {
                         caughtUp = false
                         activities.append(.running)
                         candidates.append((row, .running, .from(itemType: row.itemType, status: row.itemStatus)))
                         continue
                     }
-                    try cursor.update(row: row, home: home)
+                    if let file = resolution.files[row.id] {
+                        try cursor.update(row: row, file: file)
+                        try file.requireUnchanged()
+                    } else { try cursor.update(row: row, home: home) }
                     // A successful partial chunk cannot prove the formerly bad
                     // stream recovered. Retain the failure count until caught up.
                     if cursor.caughtUp { retries.removeValue(forKey: row.id) }
                     caughtUp = caughtUp && cursor.caughtUp
+                    if resolution.files[row.id] != nil, cursor.caughtUp, cursor.signals.turnEnded {
+                        // A witnessed historical start cannot resurrect a turn
+                        // after its matching, fully validated terminal event.
+                        activeIDs.remove(row.id)
+                        cursors[row.id] = cursor
+                        continue
+                    }
                     let state: WorkState = cursor.signals.needsInput && cursor.caughtUp ? .needsInput : .running
                     activities.append(state)
                     candidates.append((row, state, state == .needsInput ? .needsInput : .from(itemType: row.itemType, status: row.itemStatus)))
                 } catch {
+                    if let file = resolution.files[row.id], (try? file.requireUnchanged()) == nil {
+                        activeIDs.remove(row.id)
+                        cursors.removeValue(forKey: row.id)
+                        retries.removeValue(forKey: row.id)
+                        unresolvedIdentity = true
+                        continue
+                    }
                     // The history database proves the turn is active even when
                     // the optional rollout signal stream is unavailable.
                     cursor = RolloutCursor()
@@ -110,6 +146,10 @@ public actor LocalSessionFeed {
                 // Do not resurrect historical failures at startup. There is no
                 // verified UI unread identity in this compatibility source.
                 if let endedAt = row.completedAt, endedAt >= startedAt.timeIntervalSince1970 {
+                    if let file = resolution.files[row.id], (try? file.requireUnchanged()) == nil {
+                        unresolvedIdentity = true
+                        continue
+                    }
                     activities.append(.blocked)
                     candidates.append((row, .blocked, .failed))
                 }
@@ -117,8 +157,8 @@ public actor LocalSessionFeed {
             default: throw FeedError.incompatibleSchema
             }
         }
-        cursors = cursors.filter { activeIDs.contains($0.key) }
-        retries = retries.filter { activeIDs.contains($0.key) }
+        cursors = cursors.filter { cursorIDs.contains($0.key) }
+        retries = retries.filter { cursorIDs.contains($0.key) }
         let priority: [WorkState: Int] = [.needsInput: 4, .blocked: 3, .ready: 2, .running: 1, .idle: 0]
         let selected = candidates.max {
             let left = priority[$0.state, default: 0], right = priority[$1.state, default: 0]
@@ -135,8 +175,9 @@ public actor LocalSessionFeed {
             snapshot: ActivitySnapshot(source: "local-session-history-v1", sessionID: sessionID,
                                        observedAt: Date(), activities: activities,
                                        sessionTitle: focus?.title, activity: selected?.activity ?? .idle),
-            trackedThreads: rows.count, activeThreads: activeIDs.count, caughtUp: caughtUp,
-            degradedThreads: retries.count, retryingThreads: retries.values.filter { now < $0.nextAttempt }.count)
+            trackedThreads: rows.count, activeThreads: activeIDs.count, caughtUp: caughtUp && !unresolvedIdentity,
+            degradedThreads: retries.count, retryingThreads: retries.values.filter { now < $0.nextAttempt }.count,
+            unresolvedIdentity: unresolvedIdentity)
     }
 }
 
@@ -174,7 +215,7 @@ struct SessionRow {
     let activityAt: Double
 }
 
-private enum StatusDatabase {
+enum StatusDatabase {
     static func read(home: URL) throws -> [SessionRow] {
         let state = home.appendingPathComponent("state_5.sqlite")
         let history = home.appendingPathComponent("thread_history_1.sqlite")
@@ -254,6 +295,115 @@ private enum StatusDatabase {
     }
 }
 
+extension StatusDatabase {
+    /// History namespaces absent from the state catalog are only candidates.
+    /// Their rows must never be presented until a file witness binds a root.
+    static func bindingCandidates(home: URL, since: Double) throws -> BindingCandidates {
+        let state = home.appendingPathComponent("state_5.sqlite")
+        let history = home.appendingPathComponent("thread_history_1.sqlite")
+        var database: OpaquePointer?
+        guard sqlite3_open_v2(state.path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK,
+              let db = database else {
+            if let database { sqlite3_close(database) }
+            throw FeedError.databaseUnavailable
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 100)
+        var attach: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "ATTACH DATABASE ? AS history", -1, &attach, nil) == SQLITE_OK,
+              let attach else { throw FeedError.incompatibleSchema }
+        defer { sqlite3_finalize(attach) }
+        let uri = history.absoluteString + "?mode=ro"
+        guard uri.withCString({ sqlite3_bind_text(attach, 1, $0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }) == SQLITE_OK,
+              sqlite3_step(attach) == SQLITE_DONE else { throw FeedError.databaseUnavailable }
+
+        func prepare(_ sql: String) throws -> OpaquePointer {
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK,
+                  let statement else { throw FeedError.incompatibleSchema }
+            return statement
+        }
+        func next(_ statement: OpaquePointer) throws -> Bool {
+            switch sqlite3_step(statement) {
+            case SQLITE_ROW: return true
+            case SQLITE_DONE: return false
+            case SQLITE_INTERRUPT: throw FeedError.queryTimedOut
+            default: throw FeedError.databaseUnavailable
+            }
+        }
+        func text(_ statement: OpaquePointer, _ column: Int32, limit: Int = 16_384) throws -> String {
+            let count = Int(sqlite3_column_bytes(statement, column))
+            guard sqlite3_column_type(statement, column) == SQLITE_TEXT, count <= limit,
+                  let bytes = sqlite3_column_text(statement, column),
+                  let value = String(bytes: UnsafeBufferPointer(start: bytes, count: count), encoding: .utf8),
+                  !value.utf8.contains(0) else { throw FeedError.incompatibleSchema }
+            return value
+        }
+        var deadline = ContinuousClock.now.advanced(by: .milliseconds(300))
+        return try withUnsafeMutablePointer(to: &deadline) { deadline in
+            sqlite3_progress_handler(db, 1000, { pointer in
+                guard let pointer else { return 1 }
+                return ContinuousClock.now > pointer.assumingMemoryBound(to: ContinuousClock.Instant.self).pointee ? 1 : 0
+            }, deadline)
+            defer { sqlite3_progress_handler(db, 0, nil, nil) }
+            let sql = """
+            SELECT h.thread_id,h.turn_id,h.status,h.rollout_byte_offset,h.completed_at,i.item_type,
+                   CASE WHEN json_valid(i.item_json) THEN json_extract(i.item_json,'$.status') END,
+                   COALESCE(i.completed_at_ms,i.started_at_ms,i.created_at_ms,h.completed_at*1000,h.started_at*1000,0)
+            FROM history.thread_turns h
+            LEFT JOIN threads owner ON owner.id=h.thread_id
+            LEFT JOIN history.thread_items i ON h.status='inProgress' AND i.thread_id=h.thread_id AND i.turn_id=h.turn_id
+              AND i.item_id=CASE WHEN h.status='inProgress' THEN
+                (SELECT item_id FROM history.thread_items z WHERE z.thread_id=h.thread_id AND z.turn_id=h.turn_id
+                 ORDER BY COALESCE(z.updated_at_ordinal,z.rollout_ordinal) DESC,z.rollout_ordinal DESC LIMIT 1) END
+            WHERE owner.id IS NULL AND (h.status='inProgress' OR (h.status='failed' AND h.completed_at>=?))
+              AND h.rollout_ordinal=(SELECT MAX(x.rollout_ordinal) FROM history.thread_turns x WHERE x.thread_id=h.thread_id)
+            ORDER BY h.started_at DESC,h.thread_id,h.turn_id
+            LIMIT 33
+            """
+            let statement = try prepare(sql)
+            defer { sqlite3_finalize(statement) }
+            guard sqlite3_bind_double(statement, 1, since) == SQLITE_OK else { throw FeedError.databaseUnavailable }
+            var historyRows: [SessionRow] = []
+            while try next(statement) {
+                let offset = sqlite3_column_int64(statement, 3)
+                guard offset >= 0 else { throw FeedError.incompatibleSchema }
+                historyRows.append(SessionRow(id: try text(statement, 0, limit: 512), path: "",
+                    turnID: try text(statement, 1, limit: 512), status: try text(statement, 2, limit: 32),
+                    offset: UInt64(offset), completedAt: sqlite3_column_type(statement, 4) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 4),
+                    title: nil, itemType: sqlite3_column_type(statement, 5) == SQLITE_NULL ? nil : try text(statement, 5, limit: 512),
+                    itemStatus: sqlite3_column_type(statement, 6) == SQLITE_NULL ? nil : try text(statement, 6, limit: 512),
+                    activityAt: sqlite3_column_double(statement, 7)))
+            }
+            guard !historyRows.isEmpty else { return BindingCandidates(roots: [], history: [], exceedsLimit: false) }
+            // Recency orders the bounded search only. It never establishes a binding.
+            let schema = try prepare("PRAGMA table_info(threads)")
+            defer { sqlite3_finalize(schema) }
+            var columns = Set<String>()
+            while try next(schema) { columns.insert(try text(schema, 1, limit: 512)) }
+            let recency = columns.contains("updated_at_ms") ? "COALESCE(t.updated_at_ms,0)"
+                : columns.contains("updated_at") ? "COALESCE(t.updated_at,0)*1000" : "0"
+            let rootStatement = try prepare("""
+            SELECT t.id,t.rollout_path,substr(COALESCE(NULLIF(trim(t.name),''),t.title),1,512),\(recency)
+            FROM threads t
+            WHERE t.archived=0 AND (t.agent_path IS NULL OR t.agent_path='/root')
+              AND CASE WHEN json_valid(t.source) THEN json_type(t.source,'$.subagent') IS NULL ELSE 1 END
+            ORDER BY 4 DESC,t.id
+            LIMIT 10001
+            """)
+            defer { sqlite3_finalize(rootStatement) }
+            var roots: [BindingRoot] = []
+            while try next(rootStatement) {
+                roots.append(BindingRoot(id: try text(rootStatement, 0, limit: 512), path: try text(rootStatement, 1),
+                    title: sqlite3_column_type(rootStatement, 2) == SQLITE_NULL ? nil : try text(rootStatement, 2, limit: 2048),
+                    recency: sqlite3_column_double(rootStatement, 3)))
+            }
+            return BindingCandidates(roots: Array(roots.prefix(10_000)), history: Array(historyRows.prefix(32)),
+                                     exceedsLimit: roots.count > 10_000 || historyRows.count > 32)
+        }
+    }
+}
+
 private struct RolloutCursor {
     private var turnID: String?
     private var fileID: UInt64?
@@ -261,6 +411,23 @@ private struct RolloutCursor {
     private var projection = RolloutJSONLProjection()
     private(set) var signals = RolloutSignals()
     private(set) var caughtUp = false
+
+    mutating func update(row: SessionRow, file: RolloutBindingFile) throws {
+        if turnID != row.turnID || fileID != UInt64(file.identity.inode) || offset > file.size {
+            turnID = row.turnID
+            fileID = UInt64(file.identity.inode)
+            offset = row.offset
+            projection = RolloutJSONLProjection()
+            signals = RolloutSignals()
+        }
+        guard offset <= file.size else { throw FeedError.invalidRollout }
+        let data = try file.read(at: offset, maximumBytes: file.remainingBytes)
+        offset += UInt64(data.count)
+        try projection.consume(data) { line in
+            try signals.consumeProjected(line, turnID: row.turnID)
+        }
+        caughtUp = offset == file.size && !projection.hasPartialRecord
+    }
 
     mutating func update(row: SessionRow, home: URL) throws {
         let path = URL(fileURLWithPath: row.path).resolvingSymlinksInPath()
@@ -301,6 +468,7 @@ public struct RolloutSignals: Sendable {
         var accepted = false
     }
     private var asyncQuestions: [String: AsyncQuestion] = [:]
+    private(set) var turnEnded = false
     public var needsInput: Bool {
         !pendingCalls.isEmpty || asyncQuestions.values.contains { $0.accepted && !$0.remaining.isEmpty }
     }
@@ -322,6 +490,7 @@ public struct RolloutSignals: Sendable {
         if event.type == "event_msg", ["task_started", "task_complete", "turn_complete", "turn_aborted"].contains(type) {
             pendingCalls.removeAll()
             asyncQuestions.removeAll()
+            if payload.turn_id == turnID { turnEnded = type != "task_started" }
             return
         }
         guard event.type == "response_item" else { return }

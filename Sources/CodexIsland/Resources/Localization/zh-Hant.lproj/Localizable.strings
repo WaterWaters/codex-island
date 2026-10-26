@@ -31,6 +31,7 @@
 "connection.missing_data.title" = "尚未找到本機對話資料";
 "connection.incompatible.title" = "本機來源暫不相容";
 "connection.temporary_failure.title" = "暫時無法讀取狀態";
+"connection.identity_limited.title" = "已連線 · 部分狀態待確認";
 "connection.events_limited.title" = "已連線 · 事件同步受限";
 "connection.synchronizing.title" = "已連線 · 正在追趕事件";
 "connection.connected.title" = "已連線本機 Codex";
@@ -42,6 +43,7 @@
 "connection.missing_data.next" = "請先在 Codex 中開啟或建立一個本機對話。若使用自訂資料目錄，請確認啟動時的 CODEX_HOME 設定，再重新同步。";
 "connection.incompatible.next" = "目前本機資料結構不受配接器支援。請檢查 Codex Island 更新；可複製去識別化診斷協助定位。";
 "connection.temporary_failure.next" = "應用程式會自動重試。請確認 Codex 可正常使用；若仍失敗，可重新同步或複製去識別化診斷。";
+"connection.identity_limited.next" = "暫時無法確認部分對話狀態。已確認的活動仍會顯示，應用程式會自動重試；也可以重新同步。未確認的狀態不代表閒置。";
 "connection.events_limited.next" = "基本活動仍可顯示，但問答事件尚未完整追趕。應用程式正在有界重試；可重新同步。受限期間不將問答狀態視為完整。";
 "connection.synchronizing.next" = "正在增量讀取事件。請稍候，追趕完成前不將問答狀態視為完整。";
 "connection.connected.next" = "連線正常。狀態會自動更新；若與 Codex 不一致，可重新同步。";

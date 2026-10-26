@@ -4,6 +4,7 @@ import Foundation
 /// No complete source line, tool output, question title or answer is retained.
 struct RolloutJSONLProjection {
     static let readBudget = 262_144
+    static let bindingDocumentBudget = 65_536
     private var parser = ProjectedJSONParser(rule: .event)
     private(set) var hasPartialRecord = false
 
@@ -11,6 +12,18 @@ struct RolloutJSONLProjection {
     /// whitespace and formatting newlines. Feed records remain strict JSONL.
     static func document(_ data: Data) throws -> Data {
         var parser = ProjectedJSONParser(rule: .event)
+        for byte in data { try parser.consume(byte) }
+        return try JSONEncoder().encode(parser.finish())
+    }
+
+    /// A single bounded identity witness, not a rollout event stream. The
+    /// caller still proves record location, file identity and expected IDs.
+    /// Every object's keys are checked, including discarded metadata objects.
+    /// Decoded keys are limited to 512 bytes, 1024 per object and 2048 total;
+    /// their retained bytes also stay beneath the 64 KiB document bound.
+    static func bindingDocument(_ data: Data) throws -> Data {
+        guard data.count <= bindingDocumentBudget else { throw FeedError.oversized }
+        var parser = ProjectedJSONParser(rule: .binding, strictObjectKeys: true)
         for byte in data { try parser.consume(byte) }
         return try JSONEncoder().encode(parser.finish())
     }
@@ -49,6 +62,13 @@ private indirect enum ProjectionRule: Sendable {
         ])
     ])
 
+    static let binding: Self = .object([
+        "type": .string(512),
+        "payload": .object([
+            "type": .string(512), "id": .string(512), "turn_id": .string(512)
+        ])
+    ])
+
     var isDiscard: Bool { if case .discard = self { true } else { false } }
 }
 
@@ -71,12 +91,19 @@ private indirect enum ProjectedJSON: Encodable {
 private enum ProjectionFailure: Error { case malformed, ambiguous }
 
 /// A small strict JSON recognizer: a bounded stack, finite number/literal
-/// states, and scalar-by-scalar UTF-8 / UTF-16 escape validation. Discarded
-/// objects and arrays consume no storage proportional to their length.
+/// states, and scalar-by-scalar UTF-8 / UTF-16 escape validation. Ordinary
+/// event projection discards unknown bodies without length-proportional
+/// storage. Binding mode additionally keeps strictly bounded object key sets.
 private struct ProjectedJSONParser {
     static let maximumDepth = 64
     static let maximumRetainedBytes = 1_048_576
+    private static let maximumKeysPerObject = 1024
+    private static let maximumDocumentKeys = 2048
+    private static let maximumDocumentKeyBytes = 65_536
     private let rule: ProjectionRule
+    private let strictObjectKeys: Bool
+    private var documentKeys = 0
+    private var documentKeyBytes = 0
     private var frames: [Frame] = []
     private var token: Token?
     private var result: ProjectedJSON?
@@ -125,7 +152,10 @@ private struct ProjectedJSONParser {
         }
     }
 
-    init(rule: ProjectionRule) { self.rule = rule }
+    init(rule: ProjectionRule, strictObjectKeys: Bool = false) {
+        self.rule = rule
+        self.strictObjectKeys = strictObjectKeys
+    }
 
     var liveRetainedBytes: Int {
         if case let .string(string, _) = token { return retainedBytes + string.retainedBytes }
@@ -176,7 +206,7 @@ private struct ProjectedJSONParser {
         case .firstKey, .key:
             if byte == 125, top.phase == .firstKey { try closeObject(); return }
             guard byte == 34 else { throw ProjectionFailure.malformed }
-            token = .string(JSONStringToken(key: true, rule: .discard), true)
+            token = .string(JSONStringToken(key: true, rule: .discard, rejectOversizedKeys: strictObjectKeys), true)
         case .colon:
             guard byte == 58 else { throw ProjectionFailure.malformed }
             frames[frames.count - 1].phase = .objectValue
@@ -228,8 +258,18 @@ private struct ProjectedJSONParser {
 
     private mutating func acceptKey(_ key: String?) throws {
         let index = frames.count - 1
-        if let key, case let .object(fields) = frames[index].rule, fields[key] != nil {
+        if strictObjectKeys {
+            guard let key, frames[index].seen.count < Self.maximumKeysPerObject,
+                  documentKeys < Self.maximumDocumentKeys else { throw FeedError.oversized }
             guard frames[index].seen.insert(key).inserted else { throw ProjectionFailure.ambiguous }
+            documentKeys += 1
+            documentKeyBytes += key.utf8.count
+            guard documentKeyBytes <= Self.maximumDocumentKeyBytes else { throw FeedError.oversized }
+        }
+        if let key, case let .object(fields) = frames[index].rule, fields[key] != nil {
+            if !strictObjectKeys {
+                guard frames[index].seen.insert(key).inserted else { throw ProjectionFailure.ambiguous }
+            }
             frames[index].key = key
         } else { frames[index].key = nil }
         frames[index].phase = .colon
@@ -341,6 +381,7 @@ private final class JSONStringToken {
     private enum Escape { case raw, escaped, unicode(Int, UInt32), lowSlash, lowU, lowUnicode(Int, UInt32) }
     private let isKey: Bool
     private let rule: ProjectionRule
+    private let rejectOversizedKeys: Bool
     private var escape = Escape.raw
     private var highSurrogate: UInt32 = 0
     private var scalar: [UInt8] = []
@@ -351,9 +392,10 @@ private final class JSONStringToken {
     private var reply: ReplyProjection?
     private(set) var failure: FeedError?
 
-    init(key: Bool, rule: ProjectionRule) {
+    init(key: Bool, rule: ProjectionRule, rejectOversizedKeys: Bool = false) {
         isKey = key
         self.rule = rule
+        self.rejectOversizedKeys = rejectOversizedKeys
         if case let .embedded(inner) = rule { embedded = EmbeddedProjection(rule: inner) }
         else { embedded = nil }
         if case .reply = rule { reply = ReplyProjection() }
@@ -438,7 +480,10 @@ private final class JSONStringToken {
         if isKey {
             guard !keyTooLong else { return }
             if storage.count < 512 { storage.append(byte) }
-            else { storage.removeAll(); keyTooLong = true }
+            else {
+                if rejectOversizedKeys { throw FeedError.oversized }
+                storage.removeAll(); keyTooLong = true
+            }
         } else if embedded != nil || reply != nil { try emit([byte]) }
         else if case let .string(maximum) = rule {
             guard storage.count < maximum else { throw FeedError.oversized }
@@ -449,7 +494,10 @@ private final class JSONStringToken {
     private func emit(_ bytes: [UInt8]) throws {
         if isKey {
             if storage.count + bytes.count <= 512, !keyTooLong { storage.append(contentsOf: bytes) }
-            else { storage.removeAll(); keyTooLong = true }
+            else {
+                if rejectOversizedKeys { throw FeedError.oversized }
+                storage.removeAll(); keyTooLong = true
+            }
         } else if let embedded {
             do { try embedded.consume(bytes) } catch { deferFailure(error) }
         } else if let reply {
