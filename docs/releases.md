@@ -10,7 +10,7 @@ Hosted-runner unit tests do not replace real desktop validation of approvals, Sp
 
 ## Preview release workflow
 
-Pushing a version tag such as v0.8.1 starts the preview workflow. Maintainers can also dispatch it manually with an existing tag. The workflow:
+Pushing a version tag such as v0.9.0 starts the preview workflow. Maintainers can also dispatch it manually with an existing tag. The workflow:
 
 1. Checks that the tag is a version, resolves to the checked-out commit, and is on main's history.
 2. Checks the public source set and runs Release tests.
@@ -28,14 +28,14 @@ Update MARKETING_VERSION and BUILD_NUMBER in Scripts/package_app.sh, plus the ch
 ```bash
 python3 Scripts/verify_repository.py
 ./Scripts/test.sh -c release
-./Scripts/package_release.sh v0.8.1
+./Scripts/package_release.sh v0.9.0
 ```
 
 After committing and pushing to main, wait for all CI jobs on that exact commit to pass before creating the version tag:
 
 ```bash
-git tag -a v0.8.1 -m "Codex Island v0.8.1 preview"
-git push origin v0.8.1
+git tag -a v0.9.0 -m "Codex Island v0.9.0 preview"
+git push origin v0.9.0
 ```
 
 Do not reuse a published tag. A failed workflow may leave a draft; inspect it and the failure logs before manually recovering. Published assets are not overwritten by rerunning the workflow.

@@ -1,6 +1,14 @@
 # GitHub 发布准备记录
 
-日期：2026-10-26；本次版本 0.8.1 build 15。下方 0.7.x 和未发布阶段记录作为历史证据保留。
+日期：2026-10-28；本次版本 0.9.0 build 16。下方 0.8.x、0.7.x 和未发布阶段记录作为历史证据保留。
+
+## 0.9.0 Claude Code 兼容发布检查
+
+- Claude 来源基于已提交的只读适配器，独立注册表 / 进程身份 / 事件投影与退避；默认 Codex，菜单及连接页可固定 Claude 或自动轮播。四语言 README、来源、使用、设计、隐私与发布说明已对齐。
+- 本轮本机 Release 回归共 212 项：203 执行通过、9 按既有条件跳过，零失败；包括 12 项 Claude / 来源轮播反例。进程采样器校准 3 项通过，不代表长期性能验收。公开文件检查及 Shell 语法 / 差异检查通过。
+- 兼容来源文档此前记录的现场对象为 Claude Code 2.1.309 / claude-desktop-3p / macOS 27.0.1；本轮未把历史记录当作新的真实问答 / 审批交互证据。CLI / IDE 注册表覆盖仍待验证。
+- 当前版本的双平台 CI、通用包与公开下载检查以 [Actions](https://github.com/WaterWaters/codex-island/actions) 和 [v0.9.0 Preview](https://github.com/WaterWaters/codex-island/releases/tag/v0.9.0) 实际记录为准；源码回归不代替发布二进制启动验证。
+- ad-hoc 签名，未 Developer ID 签名或公证。macOS 14 / Intel 桌面、完整 sleep / lock / Space / 显示器组合、VoiceOver 实际朗读仍待验收；性能专项继续延期。
 
 ## 0.8.1 发布资源与物理刘海修复
 

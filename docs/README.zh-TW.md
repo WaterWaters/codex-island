@@ -4,7 +4,7 @@
 
 <h1 align="center">Codex Island</h1>
 
-<p align="center">Codex 進度，一眼掌握。<br>原生 macOS 狀態島，讓目前活動、待回答的問題與小小陪伴留在螢幕一角。</p>
+<p align="center">Codex 與 Claude Code 進度，一眼掌握。<br>原生 macOS 狀態島，讓目前活動、待回答的問題與小小陪伴留在螢幕一角。</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-0B7285?style=flat-square" alt="macOS 14+">
@@ -22,9 +22,9 @@
   <a href="#previews">介面預覽</a> · <a href="#features">功能特色</a> · <a href="#getting-started">快速開始</a> · <a href="#privacy">隱私</a> · <a href="#documentation">文件</a>
 </p>
 
-Codex Island 將目前本機工作階段的標題與活動放在螢幕頂端。工作進行到哪一步、什麼時候需要你回答，一眼就能看到；點擊狀態島即可回到 Codex。
+Codex Island 將本機 Codex 與 Claude Code 工作階段的標題與活動放在螢幕頂端。進度與介入提醒一眼可見，點擊狀態島開啟目前來源的桌面應用程式。
 
-**獨立專案，與 OpenAI 無關聯。** 目前為以本機 Codex 相容性為基礎的 0.x 預覽版。
+**獨立專案，與 OpenAI 或 Anthropic 無關聯。** 目前為相容本機 Codex 與 Claude Code 的 0.x 預覽版。
 
 <a id="previews"></a>
 ## 看看狀態島的樣子
@@ -42,7 +42,7 @@ Codex Island 將目前本機工作階段的標題與活動放在螢幕頂端。�
 
 ### Mini 模式
 
-更輕巧的常駐方式：一般螢幕頂端中央顯示 44 × 22 pt 短膠囊，瀏海螢幕自動沿瀏海外緣顯示燈帶。從選單列 **Mini 模式** 或 **設定 → 外觀 → 顯示模式** 切換。移入查看狀態，點按開啟 Codex；Mini 不顯示文字與寵物，原有寵物與高度用於完整模式。開啟標題隱私後，移入說明與 VoiceOver 也會隱藏標題。
+更輕巧的常駐方式：一般螢幕頂端中央顯示 44 × 22 pt 短膠囊，瀏海螢幕自動沿瀏海外緣顯示燈帶。從選單列 **Mini 模式** 或 **設定 → 外觀 → 顯示模式** 切換。移入查看狀態，點按開啟目前來源的桌面應用程式；Mini 不顯示文字與寵物，原有寵物與高度用於完整模式。開啟標題隱私後，移入說明與 VoiceOver 也會隱藏標題。
 
 | 瀏海螢幕 | 一般螢幕 |
 | :---: | :---: |
@@ -64,11 +64,11 @@ Codex Island 將目前本機工作階段的標題與活動放在螢幕頂端。�
 <a id="getting-started"></a>
 ## 快速開始
 
-**請使用 v0.8.1 或更新版本：** 修復 v0.8.0 安裝套件啟動時的資源定位崩潰，並縮窄瀏海 Mini 黑邊、加粗燈帶；原有偏好會保留。
+**v0.9.0 新增 Claude Code 相容支援。** 在選單列或設定 → 連線選擇 Codex、Claude 或自動輪播；保留既有偏好，預設仍為 Codex。
 
 **預覽版安裝套件：** [GitHub Releases](https://github.com/WaterWaters/codex-island/releases)。發布流程檢查通過後，會提供 universal DMG 與 ZIP。[發布指南](releases.md)。
 
-**從原始碼建置：** 需要 macOS 14+、Swift 6+，以及 Xcode 或 Command Line Tools。即時本機狀態需要安裝 Codex。專案沒有第三方 Swift 套件相依性。
+**從原始碼建置：** 需要 macOS 14+、Swift 6+，以及 Xcode 或 Command Line Tools。即時本機狀態需要安裝 Codex 或受支援的 Claude Code 入口。專案沒有第三方 Swift 套件相依性。
 
 在專案根目錄執行：
 
@@ -77,7 +77,7 @@ Codex Island 將目前本機工作階段的標題與活動放在螢幕頂端。�
 open build/CodexIsland.app
 ```
 
-啟動後可在選單列找到應用程式。Codex 執行期間，狀態島在閒置時仍會保留；Codex 結束後隱藏。也可以從選單列手動顯示或隱藏。
+啟動後可在選單列找到應用程式。狀態島依所選來源的連線狀態顯示，已辨識的閒置工作階段繼續顯示；也可從選單列手動顯示或隱藏。
 
 v0.8.0 新增可略過的首次引導，以及一般 / 外觀 / 連線 / 實驗功能四組設定。連線頁提供下一步與去識別化診斷複製。[首次使用與連線檢查](getting-started.md)。
 
@@ -91,7 +91,7 @@ v0.8.0 另提供標題隱私、選用登入時啟動、主動啟用的 ⌃⌥⌘
 
 | 操作 | 效果 |
 | --- | --- |
-| 按左鍵點擊狀態島 | 開啟 Codex |
+| 按左鍵點擊狀態島 | 開啟目前來源的桌面應用程式 |
 | 按中鍵點擊狀態島 | 半透明，並讓滑鼠穿透 30 秒 |
 | 開啟選單列選單 | 顯示或隱藏、切換寵物、調整外觀，分別重新同步狀態與寵物 |
 | 開啟減少動態效果，或暫停動畫 | 保持安靜的顯示效果 |
@@ -116,6 +116,14 @@ v0.8.0 另提供標題隱私、選用登入時啟動、主動啟用的 ⌃⌥⌘
 | 所有全螢幕 / Space 組合、顯示器變更、長時間效能 | 尚未完整驗收 |
 
 Codex 的內部資料格式可能改變。來源不相容時會顯示無法使用，不會假裝閒置。v0.7.3 起支援啟動環境中絕對目錄的 `CODEX_HOME`，無效覆寫會明確報錯；事件失敗會採用有上限的退避重試，保留資料庫已確認的活動並顯示同步受限。已發布的 v0.7.2 讀取 `~/.codex/`。詳見 [本機來源限制](local-session-source.md)。
+
+### v0.9.0 的 Claude Code 支援
+
+選單列與連線設定可選 **Codex**、**Claude** 或 **自動輪播**。輪播通常每 6 秒切換，優先保留需要介入或受阻的來源，游標移入時暫停；狀態島與 VoiceOver 標明目前來源。點擊 Claude 開啟桌面應用程式，不猜測終端機視窗或特定工作階段。
+
+Claude 唯讀存取本機 `~/.claude` 活動登錄與有界事件投影；自訂目錄以啟動環境中的絕對路徑 `CLAUDE_CONFIG_DIR` 指定，無效指定會明確報錯。診斷不含標題、路徑、工作階段 ID 或訊息內容；`CodexIslandProbe --source all` 可檢查兩個來源。
+
+已記錄的相容對象為 Claude Code 2.1.309 的 `claude-desktop-3p` 入口，CLI / IDE 登錄涵蓋範圍仍待驗證。來源缺失、歧義或無法讀取時顯示不可用或同步受限，完成不等於未讀；寵物仍使用本機 Codex 素材。[Claude 來源與限制](claude-session-source.md)。
 
 <a id="development"></a>
 ## 開發

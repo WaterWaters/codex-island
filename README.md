@@ -4,7 +4,7 @@
 
 <h1 align="center">Codex Island</h1>
 
-<p align="center">Your Codex session, at a glance.<br>A native macOS status island with activity, input reminders, and a little company.</p>
+<p align="center">Your Codex and Claude Code sessions, at a glance.<br>A native macOS status island with activity, input reminders, and a little company.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-0B7285?style=flat-square" alt="macOS 14+">
@@ -22,9 +22,9 @@
   <a href="#previews">Preview</a> · <a href="#features">Features</a> · <a href="#getting-started">Get started</a> · <a href="#privacy">Privacy</a> · <a href="#documentation">Docs</a>
 </p>
 
-Codex Island keeps the current local session title and activity near the top of your screen. See when Codex is working or waiting for your answer, then click the island to return to Codex.
+Codex Island keeps local Codex and Claude Code session titles and activity near the top of your screen. See when work needs your attention, then click the island to open the displayed provider’s desktop app.
 
-**Independent project. Not affiliated with OpenAI.** This is a 0.x preview built around local Codex compatibility.
+**Independent project. Not affiliated with OpenAI or Anthropic.** This is a 0.x preview built around local Codex and Claude Code compatibility.
 
 <a id="previews"></a>
 ## See the island in action
@@ -42,7 +42,7 @@ These are native SwiftUI view renders with synthetic content, showing the curren
 
 ### Mini mode
 
-A quieter presence: a 44 × 22 pt capsule on standard displays, or a light outline that automatically follows the notch. Choose **Mini mode** in the menu bar or **Settings → Appearance → Display mode**. Hover for status and click to open Codex. Titles and pets stay hidden in Mini; Full mode keeps your pet and height preferences. Enable title privacy to also hide titles from hover text and VoiceOver.
+A quieter presence: a 44 × 22 pt capsule on standard displays, or a light outline that automatically follows the notch. Choose **Mini mode** in the menu bar or **Settings → Appearance → Display mode**. Hover for status and click to open the displayed provider’s desktop app. Titles and pets stay hidden in Mini; Full mode keeps your pet and height preferences. Enable title privacy to also hide titles from hover text and VoiceOver.
 
 | Notched display | Standard display |
 | :---: | :---: |
@@ -64,11 +64,11 @@ A quieter presence: a 44 × 22 pt capsule on standard displays, or a light outli
 <a id="getting-started"></a>
 ## Get started
 
-**Use v0.8.1 or later:** it fixes a packaged-app startup resource lookup crash in v0.8.0 and refines the notch Mini outline. Existing preferences are preserved.
+**v0.9.0 adds Claude Code compatibility.** Choose Codex, Claude, or automatic rotation in the menu bar or Settings → Connection. Existing preferences are preserved; Codex remains the default.
 
 **Preview packages:** [GitHub Releases](https://github.com/WaterWaters/codex-island/releases). The release workflow publishes a universal DMG and ZIP after its checks pass. [Release guide](docs/releases.md).
 
-**Build from source:** macOS 14+, Swift 6+, and Xcode or Command Line Tools. Install Codex for live local status. There are no third-party Swift package dependencies.
+**Build from source:** macOS 14+, Swift 6+, and Xcode or Command Line Tools. Install Codex or a supported Claude Code entry point for live local status. There are no third-party Swift package dependencies.
 
 From the project root:
 
@@ -77,7 +77,7 @@ From the project root:
 open build/CodexIsland.app
 ```
 
-The app appears in your menu bar. While Codex is running, the island stays visible even when idle; it hides when Codex exits. Show or hide it manually from the menu bar.
+The app appears in your menu bar. The island follows the selected provider’s connection state; recognized idle sessions stay visible. Show or hide it manually from the menu bar.
 
 v0.8.0 adds a skippable first-use guide and General / Appearance / Connection / Experimental settings. The Connection tab explains the next step and can copy redacted diagnostics. [First-use and connection guide](docs/getting-started.md).
 
@@ -91,7 +91,7 @@ v0.8.0 adds title privacy, optional launch at login, an opt-in ⌃⌥⌘I visibi
 
 | Action | Result |
 | --- | --- |
-| Left-click the island | Open Codex |
+| Left-click the island | Open the displayed provider’s desktop app |
 | Middle-click the island | Make it translucent and click-through for 30 seconds |
 | Open the menu-bar menu | Show or hide the island, choose a pet, change appearance, or resync status and pets separately |
 | Enable Reduce Motion or pause animation | Keep the display calm |
@@ -116,6 +116,14 @@ The default source reads the current user's `~/.codex/` databases and active ses
 | All fullscreen/Spaces combinations, display changes, long-run performance | Not fully validated |
 
 Codex's private data formats can change. An incompatible source shows unavailable rather than pretending to be idle. v0.7.3 and later honor an absolute `CODEX_HOME` directory in the launch environment; invalid overrides fail explicitly. Event failures use bounded retries and show limited synchronization while preserving database-confirmed activity. The v0.7.2 release uses `~/.codex/`. Details: [local-source boundaries](docs/local-session-source.md).
+
+### Claude Code in v0.9.0
+
+Select **Codex**, **Claude**, or **automatic rotation** in the menu bar or Connection settings. Rotation normally switches every 6 seconds, keeps input/error states in view, and pauses on hover. The island and VoiceOver identify the displayed provider. Clicking Claude opens the Claude desktop app; it does not locate a terminal or a specific session.
+
+Claude uses read-only local `~/.claude` session registrations and bounded transcript projections. Set an absolute `CLAUDE_CONFIG_DIR` in the launch environment for another directory; invalid overrides fail explicitly. Diagnostics omit titles, paths, session IDs and message payloads. Probe both sources with `CodexIslandProbe --source all`.
+
+The recorded compatibility target is Claude Code 2.1.309 via `claude-desktop-3p`. CLI/IDE registration coverage remains unverified. Missing, ambiguous, or unreadable sources show unavailable or limited synchronization; completion does not imply unread. Pets still come from local Codex assets. [Claude source and limits](docs/claude-session-source.md).
 
 <a id="development"></a>
 ## Development

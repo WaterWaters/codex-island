@@ -18,8 +18,8 @@ if [[ -n "$PREVIEW_STATE" ]]; then
   BUNDLE_ID=dev.water.codex-island.preview
 fi
 MACOS_MIN_VERSION=14.0
-MARKETING_VERSION=0.8.1
-BUILD_NUMBER=15
+MARKETING_VERSION=0.9.0
+BUILD_NUMBER=16
 ARCH_LIST=( ${ARCHES:-$(uname -m)} )
 export CLANG_MODULE_CACHE_PATH="$ROOT/.build/module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT/.build/module-cache"

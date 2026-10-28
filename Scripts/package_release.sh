@@ -61,20 +61,21 @@ import sys
 tag, version, build, commit = sys.argv[1:]
 Path('build/RELEASE_NOTES.md').write_text(f'''## Codex Island {tag} — Preview
 
-A native macOS status island for local Codex sessions, with activity, recognized question waits, appearance settings, and optional locally loaded built-in and custom pets.
+A native macOS status island for local Codex and Claude Code sessions, with source selection, automatic rotation, input reminders, and optional local Codex pets.
 
-### 本次修复
+### 本次新增
 
-- 修复发布包启动时 SwiftPM 资源定位失败引发的崩溃，四语言和品牌统一优先读取随包 Contents/Resources；开发运行仍兼容 SwiftPM 资源。
-- 新增 `--check-resources`，打包时实际执行产物并检查四语言与图标；检查不创建界面、不读 Codex 数据、不写正式偏好。
-- 刘海 Mini 外框改为两侧各 1.5 pt、下沿 2 pt，主跑马灯及等待 / 错误轮廓加粗到 2.4 pt；普通屏 44 × 22 pt 胶囊保持原样。
-- 单块 185 × 32 pt 刘海 / 2× 屏幕完成隔离的运行、等待、错误与关闭动画检查。用户确认收窄后的贴边尺寸合适；这不代表所有刘海机型或完整生命周期均已验收。
+- 新增只读 Claude Code 来源，校验活动注册表、进程启动时间与会话身份，显示工作中、需要你、受阻、空闲或来源不可用；不发送聊天、不执行审批、不修改来源数据。
+- 菜单与连接设置可选 Codex、Claude 或自动轮播；默认仍为 Codex。通常每 6 秒轮播，优先保留介入 / 受阻来源，悬停暂停；状态、悬停和 VoiceOver 标明来源。
+- 点击打开当前来源桌面应用，不猜测终端或精确会话。双来源连接健康与脱敏诊断独立展示；探针支持 `--source codex|claude|all`。
+- Claude 支持启动环境中的绝对目录 `CLAUDE_CONFIG_DIR`；坏事件有界退避，来源失败不假装空闲。四语言 README、来源、使用、架构与隐私文档同步。
 
 ### 升级与兼容
 
-- 建议 0.8.0 安装包用户升级本补丁；退出旧应用后替换应用并重新打开，原有偏好保留。
-- 相对 v0.8.0 未发现数据库结构 / 迁移变更，无本版本新增 DDL 步骤；没有新增、删除或升级运行 / 构建依赖。
-- 继续提供 macOS 14+ 的 Apple Silicon / Intel 通用包，ad-hoc 签名，未 Developer ID 签名或公证。
+- 退出旧应用后替换并重开；已有偏好保留，缺失或未知来源字段回落 Codex。宠物仍使用本机 Codex 素材。
+- 相对 v0.8.1 未发现数据库结构 / 迁移变更，无本版本新增 DDL 步骤。新增内部 ClaudeFeed 模块，无第三方依赖新增、移除或升级；源码仍使用 `./Scripts/package_app.sh` 构建。
+- Claude 已记录兼容对象为 Code 2.1.309 的 claude-desktop-3p 入口。CLI / IDE 注册表覆盖仍待验证，私有格式可能变化；缺失 / 歧义数据保守降级，不保证全局状态或完整未读。
+- macOS 14+ Apple Silicon / Intel 通用包，ad-hoc 签名，未 Developer ID 签名或公证。
 
 ### Downloads
 
@@ -84,20 +85,20 @@ A native macOS status island for local Codex sessions, with activity, recognized
 
 ### Install
 
-Open the DMG and drag CodexIsland.app to Applications, or unzip the ZIP. Launch the app and use its menu-bar controls. Install Codex for live local status.
+Open the DMG and drag CodexIsland.app to Applications, or unzip the ZIP. Launch the app and use its menu-bar controls. Install Codex or a supported Claude Code entry point for live local status; select the provider in Settings → Connection.
 
 ### Preview limitations
 
 - Ad-hoc signed, **not Developer ID signed or notarized**. macOS may block an unidentified developer; build from source if you prefer.
 - Universal binary architecture checks do not replace real-device validation on Intel or the minimum macOS version.
 - Event parsing validates large records incrementally and retains a bounded state/question projection. Malformed records or structure/semantic budget limits still cause limited synchronization; incomplete question state is not treated as complete.
-- Private Codex database/asset formats can change. Complete unread state, remote/cloud chats and full pet-state parity are unsupported.
+- Private Codex and Claude data formats can change. Complete unread state, remote/cloud chats and full pet-state parity are unsupported.
 - Native gallery rasterization is a separate opt-in desktop integration check; headless Intel rendering is unverified.
 - Approval-button recognition is opt-in and experimental. Physical notch/display combinations, hot-plugging, fullscreen/Spaces, login and sleep/lock still need broader real-device validation. Mini screenshots are synthetic native view renders.
 - Performance measurement, budgets and optimization are deferred to a separate effort; earlier baselines do not certify the new Mini mode.
 - No personal pet images, private session data, or signing credentials are included.
 
-See the repository README, security policy, changelog and compatibility documentation for details. This independent project is not affiliated with OpenAI.
+See the repository README, security policy, changelog and compatibility documentation for details. This independent project is not affiliated with OpenAI or Anthropic.
 ''')
 PY
 echo "Created build/$BASE.zip, build/$BASE.dmg and build/SHA256SUMS.txt"

@@ -17,7 +17,7 @@ CLAUDE_CONFIG_DIR=/absolute/claude-home ./build/CodexIsland.app/Contents/MacOS/C
 - `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`：会话事件流。目录名推导失败时在 `projects` 下做有界扫描，同一会话出现多个候选时报未确认，不猜测。
 - `<sessionId>/custom-title.json`：会话自定义标题，最多 512 UTF-8 字节。
 
-只读、不写 `~/.claude`，不发送消息、不批准权限、不标记已读。不读取提示词正文、思考内容、工具参数或工具输出：事件投影只保留 `type`、`subtype`、`timestamp`、`isSidechain`、`sessionId`、`message.stop_reason`、工具调用的 `id` / `name`、工具结果的 `tool_use_id`、`isApiErrorMessage`、`customTitle` 与 `agentName`。
+只读、不写 `~/.claude`，不发送消息、不批准权限、不标记已读。JSONL 字节会经过解析器；保留投影不包含提示词正文、思考内容、工具参数或工具输出：事件投影只保留 `type`、`subtype`、`timestamp`、`isSidechain`、`sessionId`、`message.stop_reason`、工具调用的 `id` / `name`、工具结果的 `tool_use_id`、`isApiErrorMessage`、`customTitle` 与 `agentName`。
 
 预算：注册表每次最多 64 个文件、每文件 64 KiB；事件流首次读取尾部 2 MiB，之后每次每会话最多 256 KiB、单行 4 MiB、最多 32 个活动会话；标题文件 8 KiB。
 

@@ -1,8 +1,11 @@
 # 安全与隐私
 
-Codex Island 是本机状态展示工具，独立于 OpenAI。它没有网络监听、遥测或自动更新功能；正常运行不发送聊天、批准请求、终止任务或标记已读。
+Codex Island 是本机状态展示工具，独立于 OpenAI 和 Anthropic。它没有网络监听、遥测或自动更新功能；正常运行不发送聊天、批准请求、终止任务或标记已读。
 
 ## 数据与权限
+
+- v0.9.0 新增 Claude Code：只读 `~/.claude/sessions` 活动注册表、`projects` 下选中会话的 JSONL 与自定义标题，支持绝对目录 `CLAUDE_CONFIG_DIR`；无效覆盖不静默回退。核对 PID 与进程启动时间，拒绝歧义会话，读取和重试有界。不安装 hooks，不执行 Claude 命令，不修改 Claude 数据。JSONL 字节会经过解析器，保留投影排除提示词正文、思考、工具参数和工具输出；不应声称聊天字节从不进入内存。Claude 等待来自注册表或明确工具调用，不依赖辅助功能权限。详情见 [Claude 来源](docs/claude-session-source.md)。
+- 来源选择默认 Codex，Claude / 自动轮播需用户选择；两个来源独立轮询并在连接页分别报告健康。脱敏诊断只含来源、版本、固定原因及聚合计数；不输出标题、路径、会话 ID 或原始载荷。标题隐私使用当前来源名称（Codex / Claude）。
 
 - 默认只读当前用户 `~/.codex/state_5.sqlite`、`thread_history_1.sqlite` 和活动回合的 `sessions/` 文件。v0.7.2 之后的源码构建支持启动环境中的绝对目录 `CODEX_HOME`；无效或空的显式覆盖报 `invalidConfiguration`，不会静默改读默认目录。GUI、探针和诊断共用解析规则；诊断不输出实际路径。已发布 v0.7.2 尚不支持覆盖。
 - 默认显示会话标题；v0.8.0 可在常规设置开启标题隐私，将屏幕、悬停和 VoiceOver 的标题替换为 Codex，也可在菜单栏隐藏岛。不会自动检测屏幕分享。标题不写入应用日志。

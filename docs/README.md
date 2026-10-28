@@ -10,6 +10,7 @@ Choose a guide below. The README overview is available in four languages; most d
 | --- | --- | --- |
 | [First-use and connection guide](getting-started.md) | Onboarding, grouped settings, recovery actions, and redacted diagnostics in v0.8.0 | 简体中文 |
 | [Local session source](local-session-source.md) | Read scope, state mapping, compatibility, and diagnostics | 简体中文 |
+| [Claude Code source](claude-session-source.md) | Read-only Claude compatibility, process identity, state mapping, and limits in v0.9.0 | 简体中文 |
 | [Pet animation](pet-animation.md) | Runtime assets, timing, fallback, and animation behavior | 简体中文 |
 | [Native state previews](assets/previews/README.md) | Sixteen Full/Mini state/display examples and reproducible native rendering | English |
 | [Security and privacy](../SECURITY.md) | Local data, permissions, and vulnerability reporting | 简体中文 |

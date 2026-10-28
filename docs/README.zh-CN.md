@@ -4,7 +4,7 @@
 
 <h1 align="center">Codex Island</h1>
 
-<p align="center">Codex 进展，抬眼可见。<br>原生 macOS 状态岛，让当前活动、待回答的问题和小小陪伴留在屏幕一角。</p>
+<p align="center">Codex 与 Claude Code 进展，抬眼可见。<br>原生 macOS 状态岛，让当前活动、待回答的问题和小小陪伴留在屏幕一角。</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-0B7285?style=flat-square" alt="macOS 14+">
@@ -22,9 +22,9 @@
   <a href="#previews">界面预览</a> · <a href="#features">功能亮点</a> · <a href="#getting-started">快速开始</a> · <a href="#privacy">隐私</a> · <a href="#documentation">文档</a>
 </p>
 
-Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作进行到哪一步、什么时候需要你回答，抬眼就能看到；点击状态岛即可回到 Codex。
+Codex Island 将本机 Codex 与 Claude Code 会话的标题和活动放在屏幕顶部。工作进展与介入提醒抬眼可见，点击状态岛打开当前来源的桌面应用。
 
-**独立项目，与 OpenAI 无关联。** 当前为围绕本机 Codex 兼容性开发的 0.x 预览版。
+**独立项目，与 OpenAI 或 Anthropic 无关联。** 当前为兼容本机 Codex 与 Claude Code 的 0.x 预览版。
 
 <a id="previews"></a>
 ## 看看状态岛的样子
@@ -42,7 +42,7 @@ Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作�
 
 ### Mini 模式
 
-更轻的常驻方式：普通屏顶部居中显示 44 × 22 pt 短胶囊，刘海屏自动贴合刘海外缘显示灯带。从菜单栏 **Mini 模式** 或 **设置 → 外观 → 显示模式** 切换。悬停查看状态，点击打开 Codex；Mini 不显示文字和宠物，原有宠物与高度用于完整模式。开启标题隐私后，悬停与 VoiceOver 也隐藏标题。
+更轻的常驻方式：普通屏顶部居中显示 44 × 22 pt 短胶囊，刘海屏自动贴合刘海外缘显示灯带。从菜单栏 **Mini 模式** 或 **设置 → 外观 → 显示模式** 切换。悬停查看状态，点击打开当前来源的桌面应用；Mini 不显示文字和宠物，原有宠物与高度用于完整模式。开启标题隐私后，悬停与 VoiceOver 也隐藏标题。
 
 | 刘海屏 | 普通屏 |
 | :---: | :---: |
@@ -64,11 +64,11 @@ Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作�
 <a id="getting-started"></a>
 ## 快速开始
 
-**请使用 v0.8.1 或更新版本：** 修复 v0.8.0 安装包启动时的资源定位崩溃，并收窄刘海 Mini 黑边、加粗灯带；原有偏好保留。
+**v0.9.0 新增 Claude Code 兼容。** 在菜单栏或设置 → 连接中选择 Codex、Claude 或自动轮播；原有偏好保留，默认仍为 Codex。
 
 **预览版安装包：** [GitHub Releases](https://github.com/WaterWaters/codex-island/releases)。发布流程检查通过后，会提供 universal DMG 和 ZIP。[发布指南](releases.md)。
 
-**从源码构建：** 需要 macOS 14+、Swift 6+，以及 Xcode 或 Command Line Tools。实时本机状态需要安装 Codex。项目没有第三方 Swift 包依赖。
+**从源码构建：** 需要 macOS 14+、Swift 6+，以及 Xcode 或 Command Line Tools。实时本机状态需要安装 Codex 或受支持的 Claude Code 入口。项目没有第三方 Swift 包依赖。
 
 在项目根目录执行：
 
@@ -77,7 +77,7 @@ Codex Island 将当前本机会话的标题和活动放在屏幕顶部。工作�
 open build/CodexIsland.app
 ```
 
-启动后可在菜单栏找到应用。Codex 运行期间，状态岛在空闲时仍会保留；Codex 退出后隐藏。也可以从菜单栏手动显示或隐藏。
+启动后可在菜单栏找到应用。状态岛跟随所选来源的连接状态，已识别的空闲会话继续显示；也可从菜单栏手动显示或隐藏。
 
 v0.8.0 新增可跳过的首次引导，以及常规 / 外观 / 连接 / 实验功能四组设置。连接页提供下一步和脱敏诊断复制。[首次使用与连接检查](getting-started.md)。
 
@@ -91,7 +91,7 @@ v0.8.0 另提供标题隐私、可选登录时启动、主动启用的 ⌃⌥⌘
 
 | 操作 | 效果 |
 | --- | --- |
-| 左键点击状态岛 | 打开 Codex |
+| 左键点击状态岛 | 打开当前来源的桌面应用 |
 | 中键点击状态岛 | 半透明，并让鼠标穿透 30 秒 |
 | 打开菜单栏菜单 | 显示或隐藏、换宠物、调整外观，分别重新同步状态和宠物 |
 | 开启减少动态效果，或暂停动画 | 保持安静的显示效果 |
@@ -116,6 +116,14 @@ v0.8.0 另提供标题隐私、可选登录时启动、主动启用的 ⌃⌥⌘
 | 所有全屏 / Space 组合、显示器变化、长时性能 | 尚未完整验收 |
 
 Codex 的内部数据格式可能变化。来源不兼容时会显示不可用，不会假装空闲。v0.7.3 起支持启动环境中的绝对目录 `CODEX_HOME`，无效覆盖会明确报错；事件失败会有界退避，并在保留数据库已证实活动的同时显示同步受限。已发布的 v0.7.2 读取 `~/.codex/`。详见 [本机来源边界](local-session-source.md)。
+
+### v0.9.0 的 Claude Code 支持
+
+菜单栏及连接设置可选 **Codex**、**Claude** 或 **自动轮播**。轮播通常每 6 秒切换，优先保留需要介入或受阻的来源，悬停时暂停；岛和 VoiceOver 标明当前来源。点击 Claude 打开其桌面应用，不猜测终端窗口或精确会话。
+
+Claude 只读本机 `~/.claude` 活动注册表和有界事件投影；自定义目录通过启动环境中的绝对路径 `CLAUDE_CONFIG_DIR` 指定，无效覆盖明确报错。诊断不含标题、路径、会话 ID 或消息载荷；`CodexIslandProbe --source all` 可检查两个来源。
+
+已记录的兼容对象为 Claude Code 2.1.309 的 `claude-desktop-3p` 入口，CLI / IDE 注册表覆盖仍待验证。缺失、歧义或不可读来源显示不可用或同步受限，完成不等于未读；宠物仍使用本机 Codex 素材。[Claude 来源与限制](claude-session-source.md)。
 
 <a id="development"></a>
 ## 开发
