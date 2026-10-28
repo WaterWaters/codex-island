@@ -8,6 +8,7 @@
 - 本轮本机 Release 回归共 212 项：203 执行通过、9 按既有条件跳过，零失败；包括 12 项 Claude / 来源轮播反例。进程采样器校准 3 项通过，不代表长期性能验收。公开文件检查及 Shell 语法 / 差异检查通过。
 - 兼容来源文档此前记录的现场对象为 Claude Code 2.1.309 / claude-desktop-3p / macOS 27.0.1；本轮未把历史记录当作新的真实问答 / 审批交互证据。CLI / IDE 注册表覆盖仍待验证。
 - 当前版本的双平台 CI、通用包与公开下载检查以 [Actions](https://github.com/WaterWaters/codex-island/actions) 和 [v0.9.0 Preview](https://github.com/WaterWaters/codex-island/releases/tag/v0.9.0) 实际记录为准；源码回归不代替发布二进制启动验证。
+- 首轮 Swift 6.0 CI 发现探针的 `Any` 返回值不能跨 actor 边界；改为传递不可变 JSON 字节并在调用端恢复 JSON 对象。首轮失败保留，发布须以修复提交的双平台结果为准。
 - ad-hoc 签名，未 Developer ID 签名或公证。macOS 14 / Intel 桌面、完整 sleep / lock / Space / 显示器组合、VoiceOver 实际朗读仍待验收；性能专项继续延期。
 
 ## 0.8.1 发布资源与物理刘海修复

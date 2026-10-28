@@ -68,6 +68,7 @@ A native macOS status island for local Codex and Claude Code sessions, with sour
 - 新增只读 Claude Code 来源，校验活动注册表、进程启动时间与会话身份，显示工作中、需要你、受阻、空闲或来源不可用；不发送聊天、不执行审批、不修改来源数据。
 - 菜单与连接设置可选 Codex、Claude 或自动轮播；默认仍为 Codex。通常每 6 秒轮播，优先保留介入 / 受阻来源，悬停暂停；状态、悬停和 VoiceOver 标明来源。
 - 点击打开当前来源桌面应用，不猜测终端或精确会话。双来源连接健康与脱敏诊断独立展示；探针支持 `--source codex|claude|all`。
+- 修复 Swift 6.0 对探针异构 JSON 返回值的隔离检查，异步边界仅传递不可变 JSON 字节，保持诊断字段和退出码。
 - Claude 支持启动环境中的绝对目录 `CLAUDE_CONFIG_DIR`；坏事件有界退避，来源失败不假装空闲。四语言 README、来源、使用、架构与隐私文档同步。
 
 ### 升级与兼容

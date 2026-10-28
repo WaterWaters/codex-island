@@ -4,9 +4,20 @@ import Foundation
 
 @main
 enum FeedProbe {
-    private struct Result {
-        let value: Any
+    private struct Result: Sendable {
+        // Transfer immutable bytes across the async boundary. Foundation's
+        // heterogeneous JSON objects stay local to the encoder or caller.
+        private let data: Data?
         let failed: Bool
+
+        init(value: Any, failed: Bool) {
+            data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+            self.failed = failed
+        }
+
+        var value: Any? {
+            data.flatMap { try? JSONSerialization.jsonObject(with: $0) }
+        }
     }
 
     static func main() async {
