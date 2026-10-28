@@ -1,11 +1,13 @@
+import ClaudeFeed
+import Darwin
+import DesktopFeed
 import Foundation
 import IslandCore
-import DesktopFeed
 import OSLog
-import Darwin
 
 enum SourceReading: Sendable {
-    case snapshot(ActivitySnapshot, health: FeedHealth? = nil)
+    case snapshot(ActivitySnapshot, health: SourceHealth? = nil, version: String? = nil)
+    case noLiveSession
     case unsupported
     case unavailable
     case missingLocalData
@@ -41,7 +43,12 @@ actor DesktopStatusSource: StatusSource {
                 else { logger.notice("Local event stream recovered") }
                 eventsDegraded = degraded
             }
-            return .snapshot(observation.snapshot, health: observation.health)
+            let health = observation.health
+            return .snapshot(observation.snapshot,
+                             health: SourceHealth(caughtUp: health.caughtUp,
+                                                  degradedThreads: health.degradedThreads,
+                                                  retryingThreads: health.retryingThreads,
+                                                  unresolvedIdentity: health.unresolvedIdentity))
         } catch {
             // Fixed error identifiers only: never log titles, paths or payloads.
             let reason = (error as? FeedError)?.rawValue ?? "unknownReadFailure"
@@ -51,6 +58,51 @@ actor DesktopStatusSource: StatusSource {
             case .missingDatabase: return .missingLocalData
             case .incompatibleSchema: return .unsupported
             default: return .failure(SourceFailureReason(error: error))
+            }
+        }
+    }
+    func reset() async {
+        await feed.reset()
+        eventsDegraded = false
+    }
+}
+
+/// Read-only Claude Code source. No live session is a connection state, not an
+/// idle session; an unresolved registry is reported instead of hidden.
+actor ClaudeStatusSource: StatusSource {
+    private let feed: ClaudeSessionFeed
+    private let logger = Logger(subsystem: "dev.water.codex-island", category: "ClaudeStatusSource")
+    private var lastFailure: String?
+    private var eventsDegraded = false
+
+    init(feed: ClaudeSessionFeed = ClaudeSessionFeed()) { self.feed = feed }
+
+    func read() async -> SourceReading {
+        do {
+            let observation = try await feed.read()
+            if lastFailure != nil { logger.notice("Claude status source recovered") }
+            lastFailure = nil
+            let degraded = observation.degradedSessions > 0
+            if degraded != eventsDegraded {
+                if degraded { logger.warning("Claude transcript stream degraded; bounded retries active") }
+                else { logger.notice("Claude transcript stream recovered") }
+                eventsDegraded = degraded
+            }
+            if observation.liveSessions == 0 && !observation.unresolvedIdentity {
+                return .noLiveSession
+            }
+            return .snapshot(observation.snapshot, health: observation.health,
+                             version: observation.version)
+        } catch {
+            let reason = (error as? ClaudeFeedError)?.rawValue ?? "unknownReadFailure"
+            if lastFailure != reason { logger.error("Claude status read failed: \(reason, privacy: .public)") }
+            lastFailure = reason
+            switch error as? ClaudeFeedError {
+            case .missingDirectory: return .missingLocalData
+            case .invalidConfiguration: return .failure(.invalidConfiguration)
+            case .incompatibleSchema: return .unsupported
+            case .unreadableRegistry: return .unavailable
+            default: return .failure(SourceFailureReason(claudeError: error))
             }
         }
     }

@@ -63,7 +63,7 @@ import Testing
     model.activity = .thinking
     model.summary = .reduce([.running, .running])
     model.isLocalFeed = true
-    model.localFeedHealth = FeedHealth(caughtUp: true)
+    model.localFeedHealth = SourceHealth(caughtUp: true)
     model.preferences.values.selectedPetID = "custom:untouched"
     model.preferences.values.approvalRecognitionEnabled = true
     let preferences = model.preferences.values
@@ -219,7 +219,7 @@ private struct LocalizationSampleBoard: View {
                 Text(SetupText.connection)
                 Text(SetupText.experiments)
             }.font(.headline)
-            ConnectionStatusView(model: connection, refreshStatus: {}, openCodex: {})
+            ConnectionStatusView(model: connection, provider: .codex, refreshStatus: {}, openApplication: { _ in })
             Text(SetupText.diagnosticPrivacy).font(.caption).foregroundStyle(.secondary)
         }
         .padding(24).frame(width: 720)

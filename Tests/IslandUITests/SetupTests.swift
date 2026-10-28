@@ -61,10 +61,10 @@ import Testing
         #expect(!String(localized: presentation.title).isEmpty)
         #expect(!String(localized: presentation.nextStep).isEmpty)
     }
-    #expect(ConnectionPresentation(connection: .connected, health: FeedHealth(caughtUp: false)).status == .synchronizing)
-    let degraded = ConnectionPresentation(connection: .connected, health: FeedHealth(caughtUp: false, degradedThreads: 1, retryingThreads: 1))
+    #expect(ConnectionPresentation(connection: .connected, health: SourceHealth(caughtUp: false)).status == .synchronizing)
+    let degraded = ConnectionPresentation(connection: .connected, health: SourceHealth(caughtUp: false, degradedThreads: 1, retryingThreads: 1))
     #expect(degraded.status == .eventsLimited)
-    #expect(ConnectionPresentation(connection: .connected, health: FeedHealth(caughtUp: true)).status == .connected)
+    #expect(ConnectionPresentation(connection: .connected, health: SourceHealth(caughtUp: true)).status == .connected)
     #expect(ConnectionPresentation(connection: .connected, health: nil, isDemo: true).status == .demo)
     #expect(ConnectionPresentation(connection: .connected, health: nil, isExternal: true).status == .external)
     #expect(!ConnectionPresentation(connection: .appNotInstalled, health: nil).offersOpenCodex)
@@ -77,12 +77,15 @@ import Testing
     model.sessionTitle = "PRIVATE-TITLE /Users/private-user/thread-secret"
     model.activity = .thinking
     model.codexVersion = "/Users/private-user/26.10"
-    model.localFeedHealth = FeedHealth(caughtUp: false, degradedThreads: 2, retryingThreads: 1)
+    model.localFeedHealth = SourceHealth(caughtUp: false, degradedThreads: 2, retryingThreads: 1)
     model.sourceFailureReason = .invalidRollout
     let json = try #require(model.privacyDiagnostics.json())
     let data = try #require(json.data(using: .utf8))
     let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-    #expect(Set(object.keys) == ["schemaVersion", "islandVersion", "codexVersion", "source", "connection", "reason", "caughtUp", "degradedThreads", "retryingThreads", "unresolvedIdentity"])
+    #expect(Set(object.keys) == ["schemaVersion", "islandVersion", "codexVersion", "claudeVersion",
+                                 "source", "sourceMode", "displayedSource", "connection", "reason",
+                                 "caughtUp", "degradedThreads", "retryingThreads", "unresolvedIdentity",
+                                 "claudeConnection"])
     #expect(object["unresolvedIdentity"] as? Bool == false)
     #expect(object["connection"] as? String == "eventsLimited")
     #expect(object["codexVersion"] as? String == "unknown")

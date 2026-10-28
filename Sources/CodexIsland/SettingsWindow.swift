@@ -7,7 +7,8 @@ private typealias SettingState<Value> = SwiftUI.State<Value>
 @MainActor
 final class SettingsWindowController {
     private let window: NSWindow
-    init(model: IslandModel, refreshPets: @escaping @MainActor () -> Void, openCodex: @escaping @MainActor () -> Void,
+    init(model: IslandModel, refreshPets: @escaping @MainActor () -> Void,
+         openApplication: @escaping @MainActor (SourceProvider) -> Void,
          refreshStatus: @escaping @MainActor () -> Void, reviewOnboarding: @escaping @MainActor () -> Void,
          loginItem: LoginItemController, shortcut: ShortcutController) {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 680),
@@ -15,7 +16,7 @@ final class SettingsWindowController {
         window.title = String(localized: SetupText.settingsTitle)
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: IslandSettingsView(model: model, refreshPets: refreshPets,
-            openCodex: openCodex, refreshStatus: refreshStatus, reviewOnboarding: reviewOnboarding,
+            openApplication: openApplication, refreshStatus: refreshStatus, reviewOnboarding: reviewOnboarding,
             loginItem: loginItem, shortcut: shortcut))
         window.center()
     }
@@ -30,7 +31,7 @@ final class SettingsWindowController {
 private struct IslandSettingsView: View {
     let model: IslandModel
     let refreshPets: @MainActor () -> Void
-    let openCodex: @MainActor () -> Void
+    let openApplication: @MainActor (SourceProvider) -> Void
     let refreshStatus: @MainActor () -> Void
     let reviewOnboarding: @MainActor () -> Void
     let loginItem: LoginItemController
@@ -57,7 +58,7 @@ private struct IslandSettingsView: View {
                     .tabItem { Label { Text(SetupText.general) } icon: { Image(systemName: "gearshape") } }
                 AppearanceSettingsView(model: model, refreshPets: refreshPets)
                     .tabItem { Label { Text(SetupText.appearance) } icon: { Image(systemName: "paintpalette") } }
-                ConnectionSettingsView(model: model, refreshStatus: refreshStatus, openCodex: openCodex)
+                ConnectionSettingsView(model: model, refreshStatus: refreshStatus, openApplication: openApplication)
                     .tabItem { Label { Text(SetupText.connection) } icon: { Image(systemName: "link") } }
                 ExperimentalSettingsView(model: model)
                     .tabItem { Label { Text(SetupText.experiments) } icon: { Image(systemName: "flask") } }
@@ -66,7 +67,7 @@ private struct IslandSettingsView: View {
             HStack {
                 Button(L10n.text("恢复默认")) { model.preferences.reset() }
                 Spacer()
-                Button(L10n.text("打开 Codex"), action: openCodex)
+                Button(L10n.text("打开 Codex")) { openApplication(.codex) }
                 Button(L10n.text("退出")) { NSApp.terminate(nil) }
             }.padding(16)
         }

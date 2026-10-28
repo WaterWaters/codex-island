@@ -5,7 +5,7 @@ import IslandCore
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let model: IslandModel
-    private let openCodex: @MainActor () -> Void
+    private let openApplication: @MainActor (SourceProvider) -> Void
     private let showSettings: @MainActor () -> Void
     private let refreshPets: @MainActor () -> Void
     private let refreshStatus: @MainActor () -> Void
@@ -14,11 +14,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var countdownItem: NSMenuItem?
     private var countdownTimer: Timer?
 
-    init(model: IslandModel, openCodex: @escaping @MainActor () -> Void,
+    init(model: IslandModel, openApplication: @escaping @MainActor (SourceProvider) -> Void,
          showSettings: @escaping @MainActor () -> Void, refreshPets: @escaping @MainActor () -> Void,
          refreshStatus: @escaping @MainActor () -> Void,
          toggleClickThrough: @escaping @MainActor () -> Void, remainingSeconds: @escaping @MainActor () -> Int) {
-        self.model = model; self.openCodex = openCodex; self.showSettings = showSettings
+        self.model = model; self.openApplication = openApplication; self.showSettings = showSettings
         self.refreshPets = refreshPets; self.toggleClickThrough = toggleClickThrough; self.remainingSeconds = remainingSeconds
         self.refreshStatus = refreshStatus
         super.init()
@@ -77,7 +77,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let header = add("Codex Island · \(model.displayDetail)", to: menu)
         header.isEnabled = false
-        add(L10n.text("打开 Codex"), to: menu, action: #selector(openApplication))
+        add(L10n.format("menu.open_provider", model.providerName), to: menu, action: #selector(openDisplayedApplication))
+        let sources = NSMenu(title: L10n.value("menu.source"))
+        for mode in StatusSourceMode.allCases {
+            let entry = add(sourceTitle(mode), to: sources, action: #selector(selectSource(_:)))
+            entry.representedObject = mode.rawValue
+            entry.state = model.preferences.values.sourceMode == mode ? .on : .off
+        }
+        add(L10n.value("menu.source"), to: menu).submenu = sources
         menu.addItem(.separator())
         let visibility = add(L10n.text("显示岛"), to: menu, action: #selector(toggleVisibility))
         visibility.state = model.preferences.values.isVisible ? .on : .off
@@ -123,7 +130,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func selectPet(_ sender: NSMenuItem) {
         if let id = sender.representedObject as? String { model.preferences.values.selectedPetID = id }
     }
-    @objc private func openApplication() { openCodex() }
+    @objc private func openDisplayedApplication() { openApplication(model.displayedProvider) }
+    @objc private func selectSource(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let mode = StatusSourceMode(rawValue: raw) else { return }
+        model.preferences.values.sourceMode = mode
+        model.resetRotationTiming()
+        model.advanceRotation(now: Date())
+    }
+    private func sourceTitle(_ mode: StatusSourceMode) -> String {
+        switch mode {
+        case .codex: L10n.value("settings.source_codex")
+        case .claude: L10n.value("settings.source_claude")
+        case .rotate: L10n.value("settings.source_rotate")
+        }
+    }
     @objc private func settings() { showSettings() }
     @objc private func syncPets() { refreshPets() }
     @objc private func syncStatus() { refreshStatus() }

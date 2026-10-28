@@ -1,34 +1,91 @@
+import ClaudeFeed
 import DesktopFeed
 import Foundation
 
 @main
 enum FeedProbe {
+    private struct Result {
+        let value: Any
+        let failed: Bool
+    }
+
     static func main() async {
-        let feed = LocalSessionFeed()
-        let args = Array(CommandLine.arguments.dropFirst())
-        guard args.isEmpty || (args.count == 2 && args[0] == "--watch" && Int(args[1]).map({ 1...600 ~= $0 }) == true) else {
-            print("Usage: CodexIslandProbe [--watch 1...600]")
+        var args = Array(CommandLine.arguments.dropFirst())
+        var source = "codex"
+        var watch = 1
+        if let index = args.firstIndex(of: "--source") {
+            guard index + 1 < args.count, ["codex", "claude", "all"].contains(args[index + 1]) else { exit(2) }
+            source = args[index + 1]
+            args.removeSubrange(index...(index + 1))
+        }
+        if let index = args.firstIndex(of: "--watch") {
+            guard index + 1 < args.count, let count = Int(args[index + 1]), 1...600 ~= count else { exit(2) }
+            watch = count
+            args.removeSubrange(index...(index + 1))
+        }
+        guard args.isEmpty else {
+            print("Usage: CodexIslandProbe [--source codex|claude|all] [--watch 1...600]")
             exit(2)
         }
-        let count = args.isEmpty ? 1 : Int(args[1])!
-        for _ in 0..<count {
-            do {
-                let observation = try await feed.read()
-                let states = observation.snapshot.activities.reduce(into: [String: Int]()) { $0[$1.rawValue, default: 0] += 1 }
-                let output: [String: Any] = ["source": observation.snapshot.source, "trackedThreads": observation.trackedThreads,
-                    "activeThreads": observation.activeThreads, "caughtUp": observation.caughtUp,
-                    "degradedThreads": observation.degradedThreads, "retryingThreads": observation.retryingThreads,
-                    "unresolvedIdentity": observation.unresolvedIdentity,
-                    "supportsUnread": observation.supportsUnread, "petParityVerified": false, "states": states,
-                    "activity": observation.snapshot.activity?.rawValue ?? "unknown",
-                    "hasSessionTitle": observation.snapshot.displaySessionTitle != nil]
-                let data = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
-                print(String(decoding: data, as: UTF8.self))
-            } catch {
-                print("{\"error\":\"\((error as? FeedError)?.rawValue ?? "unavailable")\",\"petParityVerified\":false}")
-                exit(1)
+        let codex = LocalSessionFeed()
+        let claude = ClaudeSessionFeed()
+        var failed = false
+        for iteration in 0..<watch {
+            var output: [String: Any] = [:]
+            if source == "codex" || source == "all" {
+                let result = await readCodex(codex)
+                output["codex"] = result.value
+                failed = failed || result.failed
             }
-            if count > 1 { try? await Task.sleep(for: .seconds(1)) }
+            if source == "claude" || source == "all" {
+                let result = await readClaude(claude)
+                output["claude"] = result.value
+                failed = failed || result.failed
+            }
+            let payload: Any = source == "all" ? output : (output[source] ?? [:])
+            if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]) {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            if iteration + 1 < watch { try? await Task.sleep(for: .seconds(1)) }
+        }
+        if failed { exit(1) }
+    }
+
+    /// Failures are fixed identifier objects; no path, title or payload is printed.
+    private static func readCodex(_ feed: LocalSessionFeed) async -> Result {
+        do {
+            let observation = try await feed.read()
+            let states = observation.snapshot.activities.reduce(into: [String: Int]()) { $0[$1.rawValue, default: 0] += 1 }
+            return Result(value: ["source": observation.snapshot.source, "trackedThreads": observation.trackedThreads,
+                "activeThreads": observation.activeThreads, "caughtUp": observation.caughtUp,
+                "degradedThreads": observation.degradedThreads, "retryingThreads": observation.retryingThreads,
+                "unresolvedIdentity": observation.unresolvedIdentity,
+                "supportsUnread": observation.supportsUnread, "petParityVerified": false, "states": states,
+                "activity": observation.snapshot.activity?.rawValue ?? "unknown",
+                "hasSessionTitle": observation.snapshot.displaySessionTitle != nil], failed: false)
+        } catch {
+            let reason = (error as? FeedError)?.rawValue ?? "unavailable"
+            return Result(value: ["error": reason, "petParityVerified": false], failed: true)
+        }
+    }
+
+    private static func readClaude(_ feed: ClaudeSessionFeed) async -> Result {
+        do {
+            let observation = try await feed.read()
+            let states = observation.snapshot.activities.reduce(into: [String: Int]()) { $0[$1.rawValue, default: 0] += 1 }
+            return Result(value: ["source": observation.snapshot.source,
+                "liveSessions": observation.liveSessions, "trackedSessions": observation.trackedSessions,
+                "caughtUp": observation.caughtUp, "degradedSessions": observation.degradedSessions,
+                "retryingSessions": observation.retryingSessions,
+                "unresolvedIdentity": observation.unresolvedIdentity,
+                "supportsUnread": observation.supportsUnread,
+                "version": observation.version ?? "unknown",
+                "states": states,
+                "activity": observation.snapshot.activity?.rawValue ?? "unknown",
+                "hasSessionTitle": observation.snapshot.displaySessionTitle != nil], failed: false)
+        } catch {
+            let reason = (error as? ClaudeFeedError)?.rawValue ?? "unavailable"
+            return Result(value: ["error": reason], failed: true)
         }
     }
 }

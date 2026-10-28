@@ -89,9 +89,9 @@ struct IslandView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.white)
         .accessibilityLabel(model.accessibilityDescription)
-        .accessibilityHint(L10n.text("切换到 Codex 应用"))
-        .help(mini ? model.accessibilityDescription : L10n.text(model.isLocalFeed ? "打开 Codex · 本机会话状态，完整宠物同步仍未验收" : "打开 Codex"))
-        .onHover { model.isHovered = $0 }
+        .accessibilityHint(L10n.format("island.switch_hint_provider", model.providerName))
+        .help(mini ? model.accessibilityDescription : L10n.format("island.local_help_provider", model.providerName))
+        .onHover { model.setHovered($0) }
         .animation(reduceMotion || model.motionPaused ? nil : .easeInOut(duration: 0.16), value: model.isHovered)
     }
 

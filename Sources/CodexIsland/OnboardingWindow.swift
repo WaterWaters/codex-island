@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import IslandCore
 import SwiftUI
 
 private typealias OnboardingViewState<Value> = SwiftUI.State<Value>
@@ -85,7 +86,8 @@ private struct OnboardingView: View {
                         Text(SetupText.guideStates).foregroundStyle(.secondary)
                     case 1:
                         Text(SetupText.guideConnection).font(.headline)
-                        ConnectionStatusView(model: model, refreshStatus: refreshStatus, openCodex: openCodex)
+                        ConnectionStatusView(model: model, provider: .codex, refreshStatus: refreshStatus,
+                                             openApplication: { _ in openCodex() })
                     default:
                         Text(SetupText.guidePrivacy).font(.headline)
                         Text(SetupText.guidePrivacyBody)

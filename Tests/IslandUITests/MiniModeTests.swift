@@ -27,7 +27,7 @@ import DesktopFeed
     model.preferences.values.hideSessionTitle = true
     model.isDemo = false
     model.isLocalFeed = true
-    model.localFeedHealth = FeedHealth(caughtUp: false, degradedThreads: 1)
+    model.localFeedHealth = SourceHealth(caughtUp: false, degradedThreads: 1)
     let previous = L10n.shared.language
     defer { L10n.shared.configure(language: previous) }
     for language in [AppLanguage.en, .zhHans, .zhHant, .ja] {

@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeFeed
 import DesktopFeed
 import Foundation
 import IslandCore
@@ -72,14 +73,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindow: OnboardingWindowController?
     private var requestedPetID: String?
     private let approvalObserver = ApprovalUIObserver()
-    private var gate = SnapshotGate()
+    private var gates: [SourceProvider: SnapshotGate] = [:]
     private var suspension = SuspensionState()
     private var suspended: Bool { suspension.isSuspended }
     private let loginItem: LoginItemController
     private let shortcut = ShortcutController()
+    private let claudeLauncher = ClaudeLauncher()
     private var refreshInFlight = false
+    private var lastClaudeRefresh: ContinuousClock.Instant?
+    // The Claude registry is a directory of files, so it is polled on a lower
+    // cadence than the Codex database. Rotation stays responsive at 1 s.
+    private static let claudeRefreshInterval: Duration = .seconds(1)
     private var sourceGeneration = 0
-    private var source: any StatusSource
+    private var codexSource: any StatusSource
+    private var claudeSource: any StatusSource
     private var observers: [NSObjectProtocol] = []
 
     init(options: Options) {
@@ -90,9 +97,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginItem = LoginItemController(service: options.permitsPersistentChanges ? SystemLoginItem() : nil)
         onboardingProgress = OnboardingProgress(defaults: defaults,
             permitsAutomaticPresentation: options.permitsPersistentChanges)
-        if let state = options.demo { source = DemoStatusSource(state: state) }
-        else if let url = options.statusFile { source = SnapshotFileSource(url: url) }
-        else { source = DesktopStatusSource() }
+        if let state = options.demo {
+            codexSource = DemoStatusSource(state: state)
+            claudeSource = DemoStatusSource(state: state)
+        } else if let url = options.statusFile {
+            codexSource = SnapshotFileSource(url: url)
+            claudeSource = SnapshotFileSource(url: url)
+        } else {
+            codexSource = DesktopStatusSource()
+            claudeSource = ClaudeStatusSource()
+        }
         super.init()
     }
 
@@ -114,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.menuBar?.updateStatus()
         }
         model.preferences.onChange = { [weak self] in self?.preferencesDidChange() }
-        menuBar = MenuBarController(model: model, openCodex: { [weak self] in self?.openCodex() },
+        menuBar = MenuBarController(model: model, openApplication: { [weak self] provider in self?.openApplication(provider) },
             showSettings: { [weak self] in self?.showSettings() }, refreshPets: { [weak self] in self?.synchronizePets(force: true) },
             refreshStatus: { [weak self] in self?.resynchronizeStatus() },
             toggleClickThrough: { [weak self] in
@@ -147,55 +161,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshInFlight = true
         defer { refreshInFlight = false }
         let generation = sourceGeneration
-        if options.demo == nil && options.statusFile == nil && launcher.runningApplication == nil {
-            await source.reset()
-            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
-            model.connection = launcher.applicationURL == nil ? .appNotInstalled : .appNotRunning
-            model.sourceFailureReason = nil
-            model.sessionTitle = nil
-            model.activity = nil
-            model.approvalUIIsPending = false
+        if options.demo != nil || options.statusFile != nil {
+            await refreshProvider(.codex, generation: generation)
         } else {
-            let reading = await source.read()
+            await refreshProvider(.codex, generation: generation)
             guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
-            switch reading {
-            case .snapshot(let snapshot, let health):
-                do {
-                    let summary = try gate.accept(snapshot, now: Date())
-                    if model.summary != summary { model.summary = summary }
-                    let title = snapshot.displaySessionTitle
-                    if model.sessionTitle != title { model.sessionTitle = title }
-                    if model.activity != snapshot.activity { model.activity = snapshot.activity }
-                    model.connection = .connected
-                    model.sourceFailureReason = nil
-                    model.localFeedHealth = health
-                } catch {
-                    if model.connection != .unavailable {
-                        let logger = Logger(subsystem: "dev.water.codex-island", category: "SnapshotGate")
-                        logger.error("Status snapshot rejected: \(String(describing: error), privacy: .public)")
-                    }
-                    model.connection = .unavailable
-                    model.sourceFailureReason = .snapshotRejected
-                }
-            case .unsupported:
-                model.connection = .unsupported
-                model.sourceFailureReason = .incompatibleSchema
-            case .missingLocalData:
-                model.connection = .missingLocalData
-                model.sourceFailureReason = .missingDatabase
-            case .unavailable:
-                model.connection = .unavailable
-                model.sourceFailureReason = .sourceUnavailable
-            case .failure(let reason):
-                model.connection = .unavailable
-                model.sourceFailureReason = reason
+            let now = ContinuousClock.now
+            let due = lastClaudeRefresh.map { now - $0 >= Self.claudeRefreshInterval } ?? true
+            if due || model.displayedProvider == .claude {
+                lastClaudeRefresh = now
+                await refreshProvider(.claude, generation: generation)
             }
-        }
-        if model.connection != .connected {
-            model.localFeedHealth = nil
-            model.summary = .reduce([])
-            model.activity = nil
-            model.sessionTitle = nil
+            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
         }
         if options.demo == nil && options.statusFile == nil,
            model.preferences.values.approvalRecognitionEnabled == true,
@@ -225,23 +202,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 model.approvalAccessMessage = "暂时无法读取审批控件，继续同步本机会话"
             }
         }
+        guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
+        model.advanceRotation(now: Date())
         render()
+    }
+
+    private func refreshProvider(_ provider: SourceProvider, generation: Int) async {
+        if provider == .codex, options.demo == nil, options.statusFile == nil,
+           launcher.runningApplication == nil {
+            await codexSource.reset()
+            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
+            model.apply(provider: .codex,
+                        connection: launcher.applicationURL == nil ? .appNotInstalled : .appNotRunning)
+            model.approvalUIIsPending = false
+            return
+        }
+        let reading = await source(for: provider).read()
+        guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
+        switch reading {
+        case .snapshot(let snapshot, let health, let version):
+            do {
+                var gate = gates[provider] ?? SnapshotGate()
+                let summary = try gate.accept(snapshot, now: Date())
+                gates[provider] = gate
+                model.apply(provider: provider, connection: .connected, health: health, reason: nil,
+                            summary: summary, title: snapshot.displaySessionTitle,
+                            activity: snapshot.activity, observedAt: snapshot.observedAt)
+                if provider == .claude { model.claudeVersion = version }
+            } catch {
+                if model.status(for: provider).connection != .unavailable {
+                    let logger = Logger(subsystem: "dev.water.codex-island", category: "SnapshotGate")
+                    logger.error("Status snapshot rejected: \(String(describing: error), privacy: .public)")
+                }
+                model.apply(provider: provider, connection: .unavailable, reason: .snapshotRejected)
+            }
+        case .noLiveSession:
+            model.apply(provider: provider, connection: .appNotRunning)
+        case .unsupported:
+            model.apply(provider: provider, connection: .unsupported, reason: .incompatibleSchema)
+        case .missingLocalData:
+            model.apply(provider: provider, connection: .missingLocalData, reason: .missingDatabase)
+        case .unavailable:
+            model.apply(provider: provider, connection: .unavailable, reason: .sourceUnavailable)
+        case .failure(let reason):
+            model.apply(provider: provider, connection: .unavailable, reason: reason)
+        }
+    }
+
+    private func source(for provider: SourceProvider) -> any StatusSource {
+        provider == .codex ? codexSource : claudeSource
     }
 
     private func resynchronizeStatus() {
         sourceGeneration &+= 1
         let generation = sourceGeneration
         pollTask?.cancel()
-        model.localFeedHealth = nil
-        model.sourceFailureReason = nil
+        model.resetStatus(.codex, connection: .connecting)
+        model.resetStatus(.claude, connection: .connecting)
         model.approvalUIIsPending = false
-        model.connection = .connecting
+        model.resetRotationTiming()
         render()
         Task { [weak self] in
             guard let self else { return }
-            await source.reset()
+            await codexSource.reset()
+            await claudeSource.reset()
             guard !suspended, generation == sourceGeneration else { return }
-            gate = SnapshotGate()
+            gates.removeAll()
             startPolling()
         }
     }
@@ -249,7 +275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func render() {
         menuBar?.updateStatus()
         guard !suspended else { panel?.hide(); return }
-        panel?.update(model: model) { [weak self] in self?.openCodex() }
+        panel?.update(model: model) { [weak self] in self?.openDisplayedApplication() }
     }
 
     private func configureShortcut() {
@@ -275,6 +301,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model.approvalAccessMessage = "审批窗口识别未开启"
         }
         if requestedPetID != model.preferences.values.selectedPetID { synchronizePets(force: false) }
+        model.advanceRotation(now: Date())
         render()
     }
 
@@ -299,7 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showSettings() {
         if settingsWindow == nil {
             settingsWindow = SettingsWindowController(model: model, refreshPets: { [weak self] in self?.synchronizePets(force: true) },
-                openCodex: { [weak self] in self?.openCodex() },
+                openApplication: { [weak self] provider in self?.openApplication(provider) },
                 refreshStatus: { [weak self] in self?.resynchronizeStatus() },
                 reviewOnboarding: { [weak self] in self?.showOnboarding() },
                 loginItem: loginItem, shortcut: shortcut)
@@ -326,6 +353,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 render()
             }
         }
+    }
+
+    private func openClaude() {
+        Task { [weak self] in
+            guard let self else { return }
+            if !(await claudeLauncher.open()) {
+                model.launchFailed = true
+                render()
+                try? await Task.sleep(for: .seconds(3))
+                model.launchFailed = false
+                render()
+            }
+        }
+    }
+
+    private func openApplication(_ provider: SourceProvider) {
+        if provider == .claude { openClaude() } else { openCodex() }
+    }
+
+    private func openDisplayedApplication() {
+        openApplication(model.displayedProvider)
     }
 
     private func observeSystem() {
@@ -382,7 +430,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let url = launcher.applicationURL
         let bundle = url.flatMap(Bundle.init(url:))
         let configuration = try? FeedConfiguration()
-        let output: [String: Any] = [
+        let claudeConfiguration = try? ClaudeFeedConfiguration()
+        let claudeRegistry = claudeConfiguration.flatMap { try? ClaudeSessionRegistry().read(home: $0.home) }
+        var output: [String: Any] = [
             "applicationFound": url != nil,
             "applicationRunning": launcher.runningApplication != nil,
             "applicationVersion": bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
@@ -393,6 +443,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "localSourceConfiguration": configuration == nil ? "invalidConfiguration" : "configured",
             "usesHomeOverride": configuration?.usesHomeOverride ?? (ProcessInfo.processInfo.environment["CODEX_HOME"] != nil)
         ]
+        let claudeDiagnostics: [String: Any] = [
+            "configuration": claudeConfiguration == nil ? "invalidConfiguration" : "configured",
+            "usesHomeOverride": claudeConfiguration?.usesHomeOverride
+                ?? (ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"] != nil),
+            "sessionsDirectoryFound": claudeConfiguration.map {
+                FileManager.default.fileExists(atPath: $0.sessionsDirectory.path)
+            } ?? false,
+            "liveSessions": claudeRegistry?.entries.count ?? 0,
+            "malformedSessions": claudeRegistry?.malformed ?? 0,
+            "version": PrivacyDiagnostics.safeVersion(claudeRegistry?.version)
+        ]
+        output["claude"] = claudeDiagnostics
         if let data = try? JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys]) {
             print(String(decoding: data, as: UTF8.self))
         }

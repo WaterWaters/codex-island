@@ -28,7 +28,7 @@ import ImageIO
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
     try encoder.encode(snapshot).write(to: url, options: .atomic)
-    guard case .snapshot(let result, let health) = await SnapshotFileSource(url: url).read() else {
+    guard case .snapshot(let result, let health, _) = await SnapshotFileSource(url: url).read() else {
         Issue.record("A valid regular snapshot file must remain readable")
         return
     }
@@ -50,13 +50,13 @@ import ImageIO
     model.connection = .connected
     model.summary = .reduce([.running])
     model.activity = .thinking
-    model.localFeedHealth = FeedHealth(caughtUp: false)
+    model.localFeedHealth = SourceHealth(caughtUp: false)
     #expect(model.displayDetail == "思考中 · 同步中")
-    model.localFeedHealth = FeedHealth(caughtUp: false, degradedThreads: 1, retryingThreads: 1)
+    model.localFeedHealth = SourceHealth(caughtUp: false, degradedThreads: 1, retryingThreads: 1)
     #expect(model.displayDetail == "思考中 · 同步受限")
     #expect(model.accessibilityDescription.contains("同步受限"))
     #expect(model.state == .running)
-    model.localFeedHealth = FeedHealth(caughtUp: true)
+    model.localFeedHealth = SourceHealth(caughtUp: true)
     #expect(model.displayDetail == "思考中")
     model.connection = .unavailable
     #expect(model.displayDetail == "状态暂不可用")

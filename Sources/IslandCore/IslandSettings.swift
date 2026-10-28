@@ -24,6 +24,8 @@ public struct IslandSettings: Codable, Equatable, Sendable {
     public var appearancePreset: AppearancePreset = .custom
     public var shortcutEnabled = false
     public var displayMode: IslandDisplayMode = .full
+    // Missing or unknown values fall back to Codex so v0.8 behavior is unchanged.
+    public var sourceMode: StatusSourceMode = .codex
 
     public init() {}
 
@@ -31,7 +33,7 @@ public struct IslandSettings: Codable, Equatable, Sendable {
         case schemaVersion, isVisible, selectedPetID, contentHeight, animationsEnabled
         case neonPrimary, neonSecondary, inputPulse, errorPulse, approvalRecognitionEnabled
         case hideSessionTitle, language, preferredDisplayID, appearancePreset, shortcutEnabled
-        case displayMode
+        case displayMode, sourceMode
     }
 
     public init(from decoder: any Decoder) throws {
@@ -53,6 +55,7 @@ public struct IslandSettings: Codable, Equatable, Sendable {
         appearancePreset = (try? values.decode(String.self, forKey: .appearancePreset)).flatMap(AppearancePreset.init(rawValue:)) ?? .custom
         shortcutEnabled = try values.decodeIfPresent(Bool.self, forKey: .shortcutEnabled) ?? false
         displayMode = (try? values.decode(String.self, forKey: .displayMode)).flatMap(IslandDisplayMode.init(rawValue:)) ?? .full
+        sourceMode = (try? values.decode(String.self, forKey: .sourceMode)).flatMap(StatusSourceMode.init(rawValue:)) ?? .codex
     }
 
     public func sanitized() -> Self {

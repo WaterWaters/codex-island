@@ -14,6 +14,7 @@ import Foundation
     static var experiments: LocalizedStringResource { resource("settings.tab.experiments", "实验功能") }
     static var reviewGuide: LocalizedStringResource { resource("onboarding.review", "重新查看使用引导…") }
     static var openCodex: LocalizedStringResource { resource("connection.open_codex", "打开 Codex") }
+    static var openClaude: LocalizedStringResource { resource("connection.open_claude", "打开 Claude") }
     static var resynchronize: LocalizedStringResource { resource("connection.resynchronize", "重新同步状态") }
     static var copyDiagnostics: LocalizedStringResource { resource("connection.copy_diagnostics", "复制脱敏诊断") }
     static var copied: LocalizedStringResource { resource("connection.diagnostics_copied", "已复制脱敏诊断") }
@@ -23,6 +24,9 @@ import Foundation
     }
     static var scope: LocalizedStringResource {
         resource("connection.source_scope", "来源：本机根会话的只读兼容适配。排除子代理；按状态优先级自动选择会话，不代表全部 Codex 聊天，也不支持完成未读同步。")
+    }
+    static var claudeScope: LocalizedStringResource {
+        resource("connection.claude.source_scope", "来源：本机 Claude Code 会话注册表与事件流的只读适配。排除子代理；按状态优先级自动选择会话，不支持完整未读同步。等待权限弹窗时可能显示为工作中。")
     }
     static var guideTitle: LocalizedStringResource { resource("onboarding.window.title", "开始使用 Codex Island") }
     static var guideWelcome: LocalizedStringResource { resource("onboarding.welcome.title", "把工作状态留在视线里") }

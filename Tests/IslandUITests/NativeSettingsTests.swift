@@ -42,13 +42,13 @@ func nativeSettingsAndMenusSwitchAllFourLanguagesWithoutChangingSessionState() t
     let login = LoginItemController()
     let hotKeyService = NativeShortcutMock()
     let shortcut = ShortcutController(service: hotKeyService)
-    let settings = SettingsWindowController(model: model, refreshPets: {}, openCodex: {},
+    let settings = SettingsWindowController(model: model, refreshPets: {}, openApplication: { _ in },
         refreshStatus: {}, reviewOnboarding: {}, loginItem: login, shortcut: shortcut)
     defer { settings.close(); shortcut.close() }
     let window = try #require(application.windows.first {
         !originalWindows.contains(ObjectIdentifier($0)) && $0.title == "Codex Island Settings"
     })
-    let menus = MenuBarController(model: model, openCodex: {}, showSettings: {}, refreshPets: {},
+    let menus = MenuBarController(model: model, openApplication: { _ in }, showSettings: {}, refreshPets: {},
         refreshStatus: {}, toggleClickThrough: {}, remainingSeconds: { 0 })
     defer { menus.close() }
     #expect(!window.isVisible)
