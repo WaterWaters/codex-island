@@ -356,6 +356,20 @@ private func entry(_ type: String, session: String = sessionID,
     #expect(second.entries.first?.status == .idle)
 }
 
+@Test func busyRegistryYieldsToCaughtUpClosedTurn() async throws {
+    let home = try makeHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let started = Date()
+    try writeRegistry(home, status: "busy", startedAt: started)
+    try writeTranscript(home, lines: [entry("user"), entry("assistant", stop: "end_turn")])
+    // Between prompts the wrapper can still carry a busy sticker; the
+    // caught-up tail whose turn is closed must read idle, not thinking.
+    let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+    let observation = try await feed.read()
+    #expect(observation.snapshot.activities == [])
+    #expect(observation.caughtUp)
+}
+
 @Test func customTitleRereadsWhenRewritten() async throws {
     let home = try makeHome()
     defer { try? FileManager.default.removeItem(at: home) }

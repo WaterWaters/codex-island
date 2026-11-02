@@ -119,7 +119,7 @@ public actor ClaudeSessionFeed {
                 let complete = try cursor.update(url: transcript, now: now)
                 if complete { retries.removeValue(forKey: entry.sessionID) }
                 caughtUp = caughtUp && complete
-                switch ClaudeSignalReducer.reduce(entry: entry, signals: cursor.signals) {
+                switch ClaudeSignalReducer.reduce(entry: entry, signals: cursor.signals, complete: complete) {
                 case .work(let state, let activity):
                     if state != .idle { activities.append(state) }
                     // A registry "waiting" carries no transcript evidence, so it

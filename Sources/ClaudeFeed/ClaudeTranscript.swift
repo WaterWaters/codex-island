@@ -43,6 +43,7 @@ struct ClaudeProjectedEntry: Equatable, Sendable {
         let subtype = object["subtype"] as? String
         let timestamp = (object["timestamp"] as? String).flatMap(parseDate)
         let isSidechain = object["isSidechain"] as? Bool ?? false
+        let isMeta = object["isMeta"] as? Bool ?? false
         let isAPIError = object["isApiErrorMessage"] as? Bool ?? false
         let customTitle = object["customTitle"] as? String
         let agentName = object["agentName"] as? String
@@ -71,7 +72,18 @@ struct ClaudeProjectedEntry: Equatable, Sendable {
         let kind: Kind
         switch type {
         case "user":
-            kind = toolResults.isEmpty ? .userPrompt : .toolResult
+            if !toolResults.isEmpty {
+                kind = .toolResult
+            } else if !isMeta,
+                      let promptSource = object["promptSource"] as? String, !promptSource.isEmpty {
+                // Only sourced prompts open a turn. Meta entries (hook-injected
+                // context) and command transcripts (promptId, no promptSource)
+                // are written after `end_turn` and must not reopen a finished
+                // turn as "thinking".
+                kind = .userPrompt
+            } else {
+                kind = .other
+            }
         case "assistant":
             kind = .assistant
         case "system":
@@ -164,7 +176,11 @@ enum ClaudeSessionState: Equatable, Sendable {
 }
 
 enum ClaudeSignalReducer {
-    static func reduce(entry: ClaudeSessionEntry, signals: ClaudeTurnSignals) -> ClaudeSessionState {
+    /// `complete` carries the caught-up promise from the cursor: an
+    /// uncaught-up tail may be missing recent events, so idle cannot be
+    /// claimed from it yet.
+    static func reduce(entry: ClaudeSessionEntry, signals: ClaudeTurnSignals,
+                       complete: Bool = false) -> ClaudeSessionState {
         // The registry is authoritative for a user-facing wait: it is set while a
         // question, dialog, worker or sandbox permission prompt is on screen, and
         // those prompts leave no other local trace.
@@ -179,6 +195,12 @@ enum ClaudeSignalReducer {
         }
         switch entry.status {
         case .busy:
+            if signals.hasPendingTools || signals.turnOpen {
+                return .work(.running, activity(signals))
+            }
+            // A caught-up tail whose turn closed outranks the wrapper's busy
+            // sticker: between prompts the process can still claim busy.
+            if complete { return .work(.idle, .idle) }
             return .work(.running, activity(signals))
         case .idle:
             if signals.hasPendingTools || signals.turnOpen {

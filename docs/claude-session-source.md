@@ -17,7 +17,7 @@ CLAUDE_CONFIG_DIR=/absolute/claude-home ./build/CodexIsland.app/Contents/MacOS/C
 - `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`：会话事件流。目录名推导失败时在 `projects` 下做有界扫描，同一会话出现多个候选时报未确认，不猜测。
 - `<sessionId>/custom-title.json`：会话自定义标题，最多 512 UTF-8 字节。
 
-只读、不写 `~/.claude`，不发送消息、不批准权限、不标记已读。JSONL 字节会经过解析器；保留投影不包含提示词正文、思考内容、工具参数或工具输出：事件投影只保留 `type`、`subtype`、`timestamp`、`isSidechain`、`sessionId`、`message.stop_reason`、工具调用的 `id` / `name`、工具结果的 `tool_use_id`、`isApiErrorMessage`、`customTitle` 与 `agentName`。
+只读、不写 `~/.claude`，不发送消息、不批准权限、不标记已读。JSONL 字节会经过解析器；保留投影不包含提示词正文、思考内容、工具参数或工具输出：事件投影只保留 `type`、`subtype`、`timestamp`、`isSidechain`、`sessionId`、`message.stop_reason`、工具调用的 `id` / `name`、工具结果的 `tool_use_id`、`isApiErrorMessage`、`isMeta`、`promptSource`、`customTitle` 与 `agentName`。回合起点只认携带非空 `promptSource` 的用户提示；`isMeta` 的系统注入记录和命令转录记录不开启回合，防止回合结束后误报“工作中”。
 
 预算：注册表每次最多 64 个文件、每文件 64 KiB；事件流首次读取尾部 2 MiB，之后每次每会话最多 256 KiB、单行 4 MiB、最多 32 个活动会话；标题文件 8 KiB。
 
@@ -47,7 +47,7 @@ CLAUDE_CONFIG_DIR=/absolute/claude-home ./build/CodexIsland.app/Contents/MacOS/C
 
 ## 已知边界
 
-- 注册表只有 `idle` / `busy` / `waiting` 三个已观测值；等待原因来自 `waitingFor`，未列出的原因同样按需要你处理，但不在诊断中输出原文。
+- 注册表只有 `idle` / `busy` / `waiting` 三个已观测值；等待原因来自 `waitingFor`，未列出的原因同样按需要你处理，但不在诊断中输出原文。`busy` 在两次提示之间可能不会被包装进程翻转；已追平、回合已闭且无未配对工具的转录证据优先于 `busy` 显示空闲，未追平时仍按「工作中」保守降级。
 - 权限弹窗由注册表 `status=waiting` 反映，不读取窗口、不使用辅助功能权限。
 - CLI / IDE 入口是否都写注册表尚未完整验证；缺失时明确报不支持，不伪造空闲。
 - 事件流只依赖尾部窗口；更早历史不参与当前回合判断。
