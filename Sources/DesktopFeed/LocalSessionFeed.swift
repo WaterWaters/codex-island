@@ -41,14 +41,32 @@ public struct FeedObservation: Sendable {
 /// replacement and Codex restarts cannot leave a stale database handle alive.
 public actor LocalSessionFeed {
     private let configuration: Result<FeedConfiguration, FeedError>
+    private let stampsFor: @Sendable (URL) -> [DatabaseStamp]?
+    private let maximumSkip: Duration
     private var sessionID = UUID().uuidString
     private var startedAt = Date()
     private var cursors: [String: RolloutCursor] = [:]
     private var retries: [String: RolloutRetry] = [:]
     private var focusedID: String?
     private var bindings = HistoryBindingResolver()
+    /// Identity witness of the last successful catalog read. An unchanged
+    /// stamp set means no catalog byte changed since, so the prior
+    /// observation is authoritative without repeating either SQL query.
+    private var lastStamps: [DatabaseStamp]?
+    private var lastObservation: FeedObservation?
+    private var lastFullRead: ContinuousClock.Instant?
+    /// Rollout files tracked by the last read; their stat identity also feeds
+    /// the witness so appended bytes cannot hide behind an unchanged catalog.
+    private var rolloutPathByID: [String: String] = [:]
 
     public init(home: URL? = nil) {
+        self.init(home: home, stampsFor: { home in try? StatusDatabase.stamps(home: home) })
+    }
+
+    init(home: URL? = nil, stampsFor: @escaping @Sendable (URL) -> [DatabaseStamp]?,
+         maximumSkip: Duration = .seconds(30)) {
+        self.stampsFor = stampsFor
+        self.maximumSkip = maximumSkip
         if let home { configuration = .success(FeedConfiguration(home: home)) }
         else {
             do { configuration = .success(try FeedConfiguration()) }
@@ -63,6 +81,10 @@ public actor LocalSessionFeed {
         retries.removeAll()
         focusedID = nil
         bindings.reset()
+        lastStamps = nil
+        lastObservation = nil
+        lastFullRead = nil
+        rolloutPathByID.removeAll()
     }
 
     public func read() throws -> FeedObservation {
@@ -72,6 +94,48 @@ public actor LocalSessionFeed {
     // A monotonic instant makes retries deterministic in tests without sleeping
     // or changing the wall clock used for snapshot timestamps and turn history.
     func read(at now: ContinuousClock.Instant) throws -> FeedObservation {
+        let home = try configuration.get().home
+        let current = witness(home: home, over: stampsFor(home))
+        if let current, current == lastStamps, let lastObservation, let lastFullRead,
+           lastFullRead.duration(to: now) < maximumSkip, lastObservation.caughtUp {
+            // The catalog byte identity did not change; the prior observation is
+            // authoritative with a fresh wall clock for downstream staleness checks.
+            return Self.refreshed(lastObservation, observedAt: Date())
+        }
+        do {
+            let observation = try readCatalog(now: now)
+            // Store the post-read witness: the catalog loop recorded the tracked
+            // rollout paths, so later reuse never hides appended rollout bytes.
+            lastStamps = witness(home: home, over: stampsFor(home))
+            lastObservation = observation
+            lastFullRead = now
+            return observation
+        } catch {
+            // Failure clears any reuse so the next tick reads fully again.
+            lastStamps = nil
+            lastObservation = nil
+            lastFullRead = nil
+            rolloutPathByID.removeAll()
+            throw error
+        }
+    }
+
+    /// Database plus its companion journals plus the rollout files actually
+    /// tracked by cursors. Any byte set change invalidates the reuse.
+    private func witness(home: URL, over databaseStamps: [DatabaseStamp]?) -> [DatabaseStamp]? {
+        guard var stamps = databaseStamps else { return nil }
+        for path in rolloutPathByID.values {
+            var info = stat()
+            guard lstat(path, &info) == 0 else { continue }
+            stamps.append(DatabaseStamp(device: UInt64(info.st_dev), inode: UInt64(info.st_ino),
+                                        size: UInt64(info.st_size),
+                                        modifiedSeconds: Int64(info.st_mtimespec.tv_sec),
+                                        modifiedNanoseconds: Int64(info.st_mtimespec.tv_nsec)))
+        }
+        return stamps
+    }
+
+    private func readCatalog(now: ContinuousClock.Instant) throws -> FeedObservation {
         let home = try configuration.get().home
         let canonical = try StatusDatabase.read(home: home)
         let resolution: BindingResolution
@@ -94,6 +158,7 @@ public actor LocalSessionFeed {
             switch row.status {
             case "inProgress":
                 activeIDs.insert(row.id)
+                rolloutPathByID[row.id] = row.path
                 var cursor = cursors[row.id] ?? RolloutCursor()
                 if let retry = retries[row.id], !retry.matches(row) {
                     retries.removeValue(forKey: row.id)
@@ -178,6 +243,24 @@ public actor LocalSessionFeed {
             trackedThreads: rows.count, activeThreads: activeIDs.count, caughtUp: caughtUp && !unresolvedIdentity,
             degradedThreads: retries.count, retryingThreads: retries.values.filter { now < $0.nextAttempt }.count,
             unresolvedIdentity: unresolvedIdentity)
+    }
+
+    /// The same provenance with a new observation wall clock; used only for
+    /// witnessed cardinally unchanged catalogs.
+    static func refreshed(_ observation: FeedObservation, observedAt: Date) -> FeedObservation {
+        FeedObservation(snapshot: ActivitySnapshot(
+                source: observation.snapshot.source,
+                sessionID: observation.snapshot.sessionID,
+                observedAt: observedAt,
+                activities: observation.snapshot.activities,
+                sessionTitle: observation.snapshot.sessionTitle,
+                activity: observation.snapshot.activity),
+            trackedThreads: observation.trackedThreads,
+            activeThreads: observation.activeThreads,
+            caughtUp: observation.caughtUp,
+            degradedThreads: observation.degradedThreads,
+            retryingThreads: observation.retryingThreads,
+            unresolvedIdentity: observation.unresolvedIdentity)
     }
 }
 
@@ -296,7 +379,35 @@ enum StatusDatabase {
 }
 
 extension StatusDatabase {
-    /// History namespaces absent from the state catalog are only candidates.
+    /// Byte-level identity of the catalog pair and their journal/WAL companions.
+    /// Every catalog write or file replacement must touch one of these names,
+    /// so an unchanged stamp set proves the previous observation still holds.
+    static func stamps(home: URL) throws -> [DatabaseStamp] {
+        let names = ["state_5.sqlite", "state_5.sqlite-wal", "state_5.sqlite-journal",
+                     "thread_history_1.sqlite", "thread_history_1.sqlite-wal", "thread_history_1.sqlite-journal"]
+        var stamps: [DatabaseStamp] = []
+        for name in names {
+            var info = stat()
+            guard lstat(home.appendingPathComponent(name).path, &info) == 0 else { continue }
+            stamps.append(DatabaseStamp(device: UInt64(info.st_dev), inode: UInt64(info.st_ino),
+                                        size: UInt64(info.st_size),
+                                        modifiedSeconds: Int64(info.st_mtimespec.tv_sec),
+                                        modifiedNanoseconds: Int64(info.st_mtimespec.tv_nsec)))
+        }
+        guard !stamps.isEmpty else { throw FeedError.databaseUnavailable }
+        return stamps
+    }
+}
+
+struct DatabaseStamp: Equatable, Sendable {
+    let device: UInt64
+    let inode: UInt64
+    let size: UInt64
+    let modifiedSeconds: Int64
+    let modifiedNanoseconds: Int64
+}
+
+extension StatusDatabase {
     /// Their rows must never be presented until a file witness binds a root.
     static func bindingCandidates(home: URL, since: Double) throws -> BindingCandidates {
         let state = home.appendingPathComponent("state_5.sqlite")

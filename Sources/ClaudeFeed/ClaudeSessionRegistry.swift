@@ -33,6 +33,24 @@ public struct ClaudeRegistrySnapshot: Sendable {
     public let version: String?
 }
 
+public struct ClaudeRegistryStamp: Equatable, Sendable {
+    let device: UInt64
+    let inode: UInt64
+    let size: UInt64
+    let modifiedSeconds: Int64
+    let modifiedNanoseconds: Int64
+
+    init?(of url: URL) {
+        var info = stat()
+        guard lstat(url.path, &info) == 0 else { return nil }
+        device = UInt64(info.st_dev)
+        inode = UInt64(info.st_ino)
+        size = UInt64(info.st_size)
+        modifiedSeconds = Int64(info.st_mtimespec.tv_sec)
+        modifiedNanoseconds = Int64(info.st_mtimespec.tv_nsec)
+    }
+}
+
 /// Reads the live-session registry. A file whose process is gone, whose
 /// start time does not match, or whose JSON is malformed is skipped; it never
 /// becomes an active session.
@@ -45,7 +63,17 @@ public struct ClaudeSessionRegistry: Sendable {
         self.liveness = liveness
     }
 
+    /// Stateless convenience for callers without a persistent cache.
     public func read(home: URL, maxSessions: Int = 64) throws -> ClaudeRegistrySnapshot {
+        var discarding: [URL: (ClaudeRegistryStamp, ClaudeSessionEntry)] = [:]
+        return try read(home: home, maxSessions: maxSessions, fileCache: &discarding)
+    }
+
+    /// `fileCache` reuses an earlier parsed entry while its stat identity is
+    /// unchanged; process liveness is still re-witnessed every read so a
+    /// replaced or dead pid cannot survive the cache.
+    public func read(home: URL, maxSessions: Int = 64,
+                     fileCache: inout [URL: (ClaudeRegistryStamp, ClaudeSessionEntry)]) throws -> ClaudeRegistrySnapshot {
         let directory = home.appendingPathComponent("sessions", isDirectory: true)
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory),
@@ -56,12 +84,30 @@ public struct ClaudeSessionRegistry: Sendable {
         do { names = try FileManager.default.contentsOfDirectory(atPath: directory.path) }
         catch { throw ClaudeFeedError.unreadableRegistry }
 
+        var urls = Set<URL>()
+        for name in names.filter({ $0.hasSuffix(".json") }).sorted().prefix(maxSessions) {
+            urls.insert(directory.appendingPathComponent(name))
+        }
+        fileCache = fileCache.filter { urls.contains($0.key) }
+
         var entries: [ClaudeSessionEntry] = []
         var skipped = 0
         var malformed = 0
         var versionCounts: [String: Int] = [:]
-        for name in names.filter({ $0.hasSuffix(".json") }).sorted().prefix(maxSessions) {
-            let url = directory.appendingPathComponent(name)
+        for url in urls {
+            if let stamp = ClaudeRegistryStamp(of: url), let cached = fileCache[url], cached.0 == stamp {
+                // Same file bytes: reuse the parsed entry, still re-witnessing
+                // the process start so dead or reused pids drop out.
+                let entry = cached.1
+                guard let processStart = liveness(entry.pid),
+                      abs(processStart.timeIntervalSince(entry.startedAt)) <= 2 else {
+                    skipped += 1
+                    continue
+                }
+                if let version = entry.version { versionCounts[version, default: 0] += 1 }
+                entries.append(entry)
+                continue
+            }
             do {
                 let data = try ClaudeFileReader.read(url: url, maxBytes: 65_536)
                 guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -89,7 +135,7 @@ public struct ClaudeSessionRegistry: Sendable {
                 }
                 let version = validString(object["version"], limit: 64)
                 if let version { versionCounts[version, default: 0] += 1 }
-                entries.append(ClaudeSessionEntry(
+                let entry = ClaudeSessionEntry(
                     pid: pid,
                     sessionID: sessionID,
                     cwd: cwd,
@@ -100,7 +146,11 @@ public struct ClaudeSessionRegistry: Sendable {
                     updatedAt: date(milliseconds: object["updatedAt"]),
                     name: validString(object["name"], limit: 512),
                     entrypoint: validString(object["entrypoint"], limit: 64),
-                    version: version))
+                    version: version)
+                entries.append(entry)
+                if let stamp = ClaudeRegistryStamp(of: url) {
+                    fileCache[url] = (stamp, entry)
+                }
             } catch {
                 malformed += 1
             }

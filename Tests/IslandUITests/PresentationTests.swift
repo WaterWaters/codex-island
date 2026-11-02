@@ -223,3 +223,28 @@ import ImageIO
     model.activity = .idle
     #expect(model.detail == "等待新任务")
 }
+
+@MainActor @Test func repeatedIdenticalSnapshotsSkipRewritesWithoutBlockingLaterChanges() {
+    let model = IslandModel()
+    let observed = Date()
+    #expect(model.apply(provider: .codex, connection: .connected, summary: .reduce([.running]),
+                        title: "第一轮成果", observedAt: observed))
+    // A repeat snapshot with only a new observation time is not a content
+    // change and must not rewrite display-driving state.
+    #expect(!model.apply(provider: .codex, connection: .connected, summary: .reduce([.running]),
+                         title: "第一轮成果", observedAt: observed.addingTimeInterval(30)))
+    #expect(model.sessionTitle == "第一轮成果")
+    #expect(model.apply(provider: .codex, connection: .connected, summary: .reduce([.running]),
+                        title: "第二轮成果", observedAt: observed.addingTimeInterval(60)))
+    #expect(model.sessionTitle == "第二轮成果")
+}
+
+@MainActor @Test func approvalStateWritesOnlyWhenStatusOrMessageActuallyChanges() {
+    let model = IslandModel()
+    #expect(model.setApproval(accessMessage: "发现 Codex 审批按钮", uiIsPending: true))
+    #expect(!model.setApproval(accessMessage: "发现 Codex 审批按钮", uiIsPending: true))
+    #expect(model.approvalUIIsPending)
+    #expect(model.setApproval(accessMessage: "发现 Codex 审批按钮", uiIsPending: false))
+    #expect(!model.approvalUIIsPending)
+    #expect(!model.setApproval(accessMessage: "发现 Codex 审批按钮", uiIsPending: false))
+}

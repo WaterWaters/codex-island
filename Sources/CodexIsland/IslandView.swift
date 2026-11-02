@@ -118,13 +118,34 @@ struct IslandView: View {
 
 }
 
+/// A cached hit-test for one geometry. The panel tests the pointer on every
+/// mouse event; rebuilding the region path per event is the hot path this
+/// avoids while answering identically to the silhouette.
+struct IslandHitProbe {
+    let geometry: IslandGeometry
+    private let region: CGPath
+    private let bounds: CGRect
+
+    init(geometry: IslandGeometry) {
+        self.geometry = geometry
+        let rect = CGRect(x: 0, y: 0, width: geometry.width, height: geometry.height)
+        bounds = rect
+        region = IslandShape(notched: geometry.hasNotch, mini: geometry.displayMode == .mini).path(in: rect).cgPath
+    }
+
+    func contains(_ point: CGPoint) -> Bool {
+        guard point.x >= bounds.minX, point.x <= bounds.maxX,
+              point.y >= bounds.minY, point.y <= bounds.maxY,
+              region.contains(point) else { return false }
+        return !(geometry.hasNotch && abs(point.x - bounds.midX) < geometry.notchWidth / 2
+                 && point.y < geometry.notchHeight)
+    }
+}
+
 /// The same silhouette drives rendering and WindowServer hit testing.
 enum IslandHitRegion {
+    /// The uncached reference; the panel holds one probe per geometry instead.
     static func contains(_ point: CGPoint, geometry: IslandGeometry) -> Bool {
-        let rect = CGRect(x: 0, y: 0, width: geometry.width, height: geometry.height)
-        guard IslandShape(notched: geometry.hasNotch, mini: geometry.displayMode == .mini)
-            .path(in: rect).contains(point) else { return false }
-        return !(geometry.hasNotch && abs(point.x - rect.midX) < geometry.notchWidth / 2
-                 && point.y < geometry.notchHeight)
+        IslandHitProbe(geometry: geometry).contains(point)
     }
 }

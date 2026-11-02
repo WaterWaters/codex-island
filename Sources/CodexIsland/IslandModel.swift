@@ -34,6 +34,10 @@ final class IslandModel {
 
     var displayedProvider: SourceProvider = .codex
     private var statuses: [SourceProvider: ProviderStatus] = [:]
+    /// Per-provider observation wall time. Recording recency here keeps the
+    /// displayed-content state clean: a repeat snapshot advances rotation
+    /// recency without invalidating the SwiftUI tree.
+    private var observationTimes: [SourceProvider: Date] = [:]
     private var lastSwitchAt: Date?
     private var rotationPausedUntil: Date?
     let rotationPolicy = RotationPolicy()
@@ -47,17 +51,32 @@ final class IslandModel {
         statuses[provider] ?? ProviderStatus()
     }
 
+    /// Writes the status only when display-driving content changed, so a
+    /// repeat snapshot between polls cannot invalidate the SwiftUI tree. The
+    /// observation timestamp advances either way and feeds rotation recency.
+    @discardableResult
     func apply(provider: SourceProvider, connection: ConnectionState, health: SourceHealth? = nil,
                reason: SourceFailureReason? = nil, summary: ActivitySummary = .reduce([]),
-               title: String? = nil, activity: SessionActivity? = nil, observedAt: Date? = nil) {
-        statuses[provider] = ProviderStatus(connection: connection, health: health,
-                                            failureReason: reason, summary: summary,
-                                            title: title, activity: activity,
-                                            observedAt: observedAt)
+               title: String? = nil, activity: SessionActivity? = nil, observedAt: Date? = nil) -> Bool {
+        let next = ProviderStatus(connection: connection, health: health,
+                                  failureReason: reason, summary: summary,
+                                  title: title, activity: activity,
+                                  observedAt: observedAt)
+        let current = statuses[provider]
+        if let current, current.connection == next.connection, current.health == next.health,
+           current.failureReason == next.failureReason, current.summary == next.summary,
+           current.title == next.title, current.activity == next.activity {
+            observationTimes[provider] = observedAt ?? current.observedAt
+            return false
+        }
+        statuses[provider] = next
+        observationTimes[provider] = observedAt ?? current?.observedAt
+        return true
     }
 
     func resetStatus(_ provider: SourceProvider, connection: ConnectionState = .connecting) {
         statuses[provider] = ProviderStatus(connection: connection)
+        observationTimes[provider] = nil
     }
 
     /// Compatibility accessors read and write the currently displayed provider.
@@ -85,6 +104,16 @@ final class IslandModel {
     var activity: SessionActivity? {
         get { status(for: displayedProvider).activity }
         set { statuses[displayedProvider, default: ProviderStatus()].activity = newValue }
+    }
+
+    /// Writes approval display state only when either half actually changes,
+    /// so the opt-in observer cannot invalidate the island between real steps.
+    @discardableResult
+    func setApproval(accessMessage: String, uiIsPending isPending: Bool) -> Bool {
+        guard approvalAccessMessage != accessMessage || approvalUIIsPending != isPending else { return false }
+        approvalAccessMessage = accessMessage
+        approvalUIIsPending = isPending
+        return true
     }
 
     var providerName: String { displayedProvider.displayName }
@@ -204,7 +233,7 @@ final class IslandModel {
             return RotationCandidate(provider: provider,
                                      isConnected: status.connection == .connected,
                                      state: status.connection == .connected ? status.summary.state : .idle,
-                                     lastActivityAt: status.observedAt)
+                                     lastActivityAt: observationTimes[provider] ?? status.observedAt)
         }
         let next = rotationPolicy.select(mode: preferences.values.sourceMode,
                                          current: displayedProvider, candidates: candidates,

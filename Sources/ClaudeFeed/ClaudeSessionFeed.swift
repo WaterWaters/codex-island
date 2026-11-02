@@ -37,6 +37,12 @@ public actor ClaudeSessionFeed {
     private var sessionID = UUID().uuidString
     private var cursors: [String: ClaudeTranscriptCursor] = [:]
     private var retries: [String: ClaudeRetry] = [:]
+    /// Stat cache for registry files; parse only when bytes change.
+    private var fileCache: [URL: (ClaudeRegistryStamp, ClaudeSessionEntry)] = [:]
+    /// Located transcript path per session, keyed to the cwd that found it.
+    private var located: [String: (cwd: String, url: URL?)] = [:]
+    /// Cached custom titles keyed by stamp, so a rewritten title re-reads.
+    private var customTitles: [String: (stamp: ClaudeRegistryStamp, title: String)] = [:]
 
     public init(home: URL? = nil,
                 liveness: @escaping ClaudeSessionRegistry.LivenessCheck = ClaudeProcessStart.read) {
@@ -53,6 +59,9 @@ public actor ClaudeSessionFeed {
         sessionID = UUID().uuidString
         cursors.removeAll()
         retries.removeAll()
+        fileCache.removeAll()
+        located.removeAll()
+        customTitles.removeAll()
     }
 
     public func read() throws -> ClaudeFeedObservation {
@@ -61,9 +70,11 @@ public actor ClaudeSessionFeed {
 
     func read(at now: ContinuousClock.Instant) throws -> ClaudeFeedObservation {
         let config = try configuration.get()
-        let registrySnapshot = try registry.read(home: config.home)
+        var fileCache = self.fileCache
+        let registrySnapshot = try registry.read(home: config.home, fileCache: &fileCache)
+        self.fileCache = fileCache
         var activities: [WorkState] = []
-        var candidates: [(entry: ClaudeSessionEntry, state: WorkState, activity: SessionActivity?, at: Date?)] = []
+        var candidates: [(entry: ClaudeSessionEntry, state: WorkState, activity: SessionActivity?, at: Date?, transcript: URL?)] = []
         var caughtUp = true
         var unresolved = registrySnapshot.malformed > 0
         var degraded = 0
@@ -74,13 +85,18 @@ public actor ClaudeSessionFeed {
 
         for entry in registrySnapshot.entries.prefix(32) {
             let transcript: URL?
-            do {
-                transcript = try ClaudeTranscriptLocator.locate(
-                    sessionID: entry.sessionID, cwd: entry.cwd,
-                    projects: config.projectsDirectory)
-            } catch {
-                transcript = nil
-                unresolved = true
+            if let cached = located[entry.sessionID], cached.cwd == entry.cwd {
+                transcript = cached.url
+            } else {
+                do {
+                    transcript = try ClaudeTranscriptLocator.locate(
+                        sessionID: entry.sessionID, cwd: entry.cwd,
+                        projects: config.projectsDirectory)
+                    located[entry.sessionID] = (entry.cwd, transcript)
+                } catch {
+                    transcript = nil
+                    unresolved = true
+                }
             }
             guard let transcript else {
                 unresolved = true
@@ -94,7 +110,7 @@ public actor ClaudeSessionFeed {
                 if entry.status.isBusy {
                     activities.append(.running)
                     candidates.append((entry, .running, .working,
-                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt))
+                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript))
                 }
                 cursors[entry.sessionID] = cursor
                 continue
@@ -111,7 +127,7 @@ public actor ClaudeSessionFeed {
                     let fromRegistryWait = entry.status.isWaiting
                     if fromRegistryWait && !complete { caughtUp = false }
                     candidates.append((entry, state, activity,
-                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt))
+                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript))
                 case .unavailable:
                     unresolved = true
                 }
@@ -123,7 +139,7 @@ public actor ClaudeSessionFeed {
                 if entry.status.isBusy {
                     activities.append(.running)
                     candidates.append((entry, .running, .working,
-                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt))
+                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript))
                 }
             }
             cursors[entry.sessionID] = cursor
@@ -138,12 +154,9 @@ public actor ClaudeSessionFeed {
             return $0.entry.sessionID < $1.entry.sessionID
         }
         let title = selected.flatMap { candidate -> String? in
-            let transcript = try? ClaudeTranscriptLocator.locate(
-                sessionID: candidate.entry.sessionID, cwd: candidate.entry.cwd,
-                projects: config.projectsDirectory)
-            return resolveTitle(entry: candidate.entry,
-                                signals: cursors[candidate.entry.sessionID]?.signals,
-                                transcript: transcript ?? nil)
+            resolveTitle(entry: candidate.entry,
+                         signals: cursors[candidate.entry.sessionID]?.signals,
+                         transcript: candidate.transcript)
         }
         let activity = selected?.activity
         return ClaudeFeedObservation(
@@ -174,10 +187,15 @@ public actor ClaudeSessionFeed {
         let url = transcript.deletingLastPathComponent()
             .appendingPathComponent(sessionID, isDirectory: true)
             .appendingPathComponent("custom-title.json")
+        let stamp = ClaudeRegistryStamp(of: url)
+        if let stamp, let cached = customTitles[sessionID], cached.stamp == stamp {
+            return cached.title
+        }
         guard let data = try? ClaudeFileReader.read(url: url, maxBytes: 8_192),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let title = object["customTitle"] as? String,
               !title.isEmpty, title.utf8.count <= 512 else { return nil }
+        if let stamp { customTitles[sessionID] = (stamp, title) }
         return title
     }
 }

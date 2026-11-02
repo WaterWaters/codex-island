@@ -13,6 +13,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let remainingSeconds: @MainActor () -> Int
     private var countdownItem: NSMenuItem?
     private var countdownTimer: Timer?
+    private var lastStatusTooltip: String?
 
     init(model: IslandModel, openApplication: @escaping @MainActor (SourceProvider) -> Void,
          showSettings: @escaping @MainActor () -> Void, refreshPets: @escaping @MainActor () -> Void,
@@ -62,8 +63,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         updateStatus()
     }
 
-    func updateStatus() {
-        item.button?.toolTip = "Codex Island · \(model.displayDetail)" + (model.preferences.values.isVisible ? "" : " · " + L10n.text("岛已隐藏")) + (model.isClickThrough ? " · " + L10n.text("临时穿透中") : "")
+    /// Composing the status line is cheap; reassigning the redundant result
+    /// to AppKit is not. Skip the assignment when nothing changed.
+    @discardableResult
+    func updateStatus() -> Bool {
+        let line = "Codex Island · \(model.displayDetail)" + (model.preferences.values.isVisible ? "" : " · " + L10n.text("岛已隐藏")) + (model.isClickThrough ? " · " + L10n.text("临时穿透中") : "")
+        guard line != lastStatusTooltip else { return false }
+        lastStatusTooltip = line
+        item.button?.toolTip = line
+        return true
     }
 
     @discardableResult private func add(_ title: String, to menu: NSMenu, action: Selector? = nil, key: String = "") -> NSMenuItem {

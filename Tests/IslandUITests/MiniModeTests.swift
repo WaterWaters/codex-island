@@ -60,3 +60,27 @@ func miniGalleryRendersEightDistinctNativeStates() throws {
     }
     #expect(images.count == 8)
 }
+
+@MainActor @Test func hitProbeAnswersTheReferenceRegionAndRebuildsForOtherGeometry() {
+    let notch = IslandGeometry.layout(screenWidth: 1512, notchWidth: 180, notchHeight: 32,
+                                      expanded: true, displayMode: .mini)
+    let probe = IslandHitProbe(geometry: notch)
+    // Identical answers on repeat calls prove the cached path keeps the
+    // region semantics of the uncached silhouette reference.
+    for (point, inside) in [
+        (CGPoint(x: 91.5, y: 15), false), (CGPoint(x: 0.75, y: 15), true),
+        (CGPoint(x: 182.25, y: 15), true), (CGPoint(x: 91.5, y: 33), true),
+        (CGPoint(x: -1, y: -1), false),
+    ] as [(CGPoint, Bool)] {
+        #expect(probe.contains(point) == inside)
+        #expect(probe.contains(point) == IslandHitRegion.contains(point, geometry: notch))
+    }
+    // The notched mini extends past the 44pt island; its right-edge strip is
+    // inside region but outside the plain island, so a stale probe cannot
+    // satisfy a new geometry.
+    let plain = IslandHitProbe(geometry: IslandGeometry.layout(screenWidth: 1920, notchWidth: 0,
+                                                               notchHeight: 0, expanded: true,
+                                                               displayMode: .mini))
+    #expect(probe.contains(CGPoint(x: 182.25, y: 15)))
+    #expect(!plain.contains(CGPoint(x: 182.25, y: 15)))
+}

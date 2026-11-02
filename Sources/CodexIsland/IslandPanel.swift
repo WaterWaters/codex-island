@@ -23,6 +23,7 @@ final class IslandPanelController {
     private var geometry: IslandGeometry?
     private var screenFrame: NSRect?
     private var hostingView: NSHostingView<IslandView>?
+    private var hitProbe: IslandHitProbe?
     private var mouseMonitor: Any?
     private var localMouseMonitor: Any?
     private var clickThrough = ClickThroughLease()
@@ -69,6 +70,14 @@ final class IslandPanelController {
         let rect = DisplayPlacementPolicy.frame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame,
                                                geometry: next, backingScale: screen.backingScaleFactor,
                                                notchCenterX: cutout?.centerX)
+        let targetLevel: NSWindow.Level = next.hasNotch || next.displayMode == .mini ? .statusBar : .floating
+        if let geometry, screenFrame == screen.frame, geometry == next,
+           panel.frame == rect, panel.level == targetLevel {
+            // Frame, level and view already match; only the pointer region
+            // tracks mouse movement between changes.
+            updateHitRegion()
+            return
+        }
         // Keep the current view alive across duplicate snapshots (including animation ticks).
         let changed = geometry != next
         let animate = changed && panel.isVisible && !model.motionPaused
@@ -87,7 +96,7 @@ final class IslandPanelController {
                 panel.contentView = host
             }
         }
-        panel.level = next.hasNotch || next.displayMode == .mini ? .statusBar : .floating
+        panel.level = targetLevel
         if animate {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.28
@@ -106,9 +115,16 @@ final class IslandPanelController {
             return
         }
         panel.alphaValue = 1
+        let probe: IslandHitProbe
+        if let cached = hitProbe, cached.geometry == geometry {
+            probe = cached
+        } else {
+            probe = IslandHitProbe(geometry: geometry)
+            hitProbe = probe
+        }
         let point = NSEvent.mouseLocation
         let local = NSPoint(x: point.x - panel.frame.minX, y: panel.frame.maxY - point.y)
-        panel.ignoresMouseEvents = !IslandHitRegion.contains(local, geometry: geometry)
+        panel.ignoresMouseEvents = !probe.contains(local)
     }
 
     func hide() {

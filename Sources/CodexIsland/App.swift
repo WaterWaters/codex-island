@@ -80,6 +80,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let shortcut = ShortcutController()
     private let claudeLauncher = ClaudeLauncher()
     private var refreshInFlight = false
+    /// Set by genuine content, approval or user changes; the poll loop only
+    /// re-renders the panel and menu bar when it is set.
+    private var presentationDirty = true
     private var lastClaudeRefresh: ContinuousClock.Instant?
     // The Claude registry is a directory of files, so it is polled on a lower
     // cadence than the Codex database. Rotation stays responsive at 1 s.
@@ -161,16 +164,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshInFlight = true
         defer { refreshInFlight = false }
         let generation = sourceGeneration
+        var changed = false
         if options.demo != nil || options.statusFile != nil {
-            await refreshProvider(.codex, generation: generation)
+            changed = await refreshProvider(.codex, generation: generation)
         } else {
-            await refreshProvider(.codex, generation: generation)
+            changed = await refreshProvider(.codex, generation: generation)
             guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
             let now = ContinuousClock.now
             let due = lastClaudeRefresh.map { now - $0 >= Self.claudeRefreshInterval } ?? true
             if due || model.displayedProvider == .claude {
                 lastClaudeRefresh = now
-                await refreshProvider(.claude, generation: generation)
+                let claudeChanged = await refreshProvider(.claude, generation: generation)
+                changed = changed || claudeChanged
             }
             guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
         }
@@ -183,70 +188,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // must not re-enable an observer the user just disabled.
             guard model.preferences.values.approvalRecognitionEnabled == true,
                   launcher.runningApplication?.processIdentifier == running.processIdentifier else {
-                model.approvalUIIsPending = false
+                let settingsChanged = model.setApproval(accessMessage: model.approvalAccessMessage, uiIsPending: false)
+                changed = changed || settingsChanged
+                guard changed else { return }
                 render()
                 return
             }
             switch reading {
             case .pending:
-                model.approvalUIIsPending = true
-                model.approvalAccessMessage = "发现 Codex 审批按钮"
+                changed = changed || model.setApproval(accessMessage: "发现 Codex 审批按钮", uiIsPending: true)
             case .clear:
-                model.approvalUIIsPending = false
-                model.approvalAccessMessage = "已开启 · 只识别已显示的 Codex 审批窗口"
+                changed = changed || model.setApproval(accessMessage: "已开启 · 只识别已显示的 Codex 审批窗口", uiIsPending: false)
             case .permissionRequired:
-                model.approvalUIIsPending = false
-                model.approvalAccessMessage = "需要在系统设置中授权 Codex Island 的辅助功能"
+                changed = changed || model.setApproval(accessMessage: "需要在系统设置中授权 Codex Island 的辅助功能", uiIsPending: false)
             case .unavailable:
-                model.approvalUIIsPending = false
-                model.approvalAccessMessage = "暂时无法读取审批控件，继续同步本机会话"
+                changed = changed || model.setApproval(accessMessage: "暂时无法读取审批控件，继续同步本机会话", uiIsPending: false)
             }
         }
         guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
         model.advanceRotation(now: Date())
-        render()
+        guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
+        if presentationDirty { render() }
     }
 
-    private func refreshProvider(_ provider: SourceProvider, generation: Int) async {
+    private func refreshProvider(_ provider: SourceProvider, generation: Int) async -> Bool {
+        var changed = false
         if provider == .codex, options.demo == nil, options.statusFile == nil,
            launcher.runningApplication == nil {
             await codexSource.reset()
-            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
-            model.apply(provider: .codex,
-                        connection: launcher.applicationURL == nil ? .appNotInstalled : .appNotRunning)
-            model.approvalUIIsPending = false
-            return
+            guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return false }
+            changed = model.apply(provider: .codex,
+                                  connection: launcher.applicationURL == nil ? .appNotInstalled : .appNotRunning)
+            _ = model.setApproval(accessMessage: model.approvalAccessMessage, uiIsPending: false)
+            return changed
         }
         let reading = await source(for: provider).read()
-        guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return }
+        guard !suspended, !Task.isCancelled, generation == sourceGeneration else { return false }
         switch reading {
         case .snapshot(let snapshot, let health, let version):
             do {
                 var gate = gates[provider] ?? SnapshotGate()
                 let summary = try gate.accept(snapshot, now: Date())
                 gates[provider] = gate
-                model.apply(provider: provider, connection: .connected, health: health, reason: nil,
-                            summary: summary, title: snapshot.displaySessionTitle,
-                            activity: snapshot.activity, observedAt: snapshot.observedAt)
-                if provider == .claude { model.claudeVersion = version }
+                changed = model.apply(provider: provider, connection: .connected, health: health, reason: nil,
+                                      summary: summary, title: snapshot.displaySessionTitle,
+                                      activity: snapshot.activity, observedAt: snapshot.observedAt)
+                if provider == .claude, version != model.claudeVersion { model.claudeVersion = version }
             } catch {
                 if model.status(for: provider).connection != .unavailable {
                     let logger = Logger(subsystem: "dev.water.codex-island", category: "SnapshotGate")
                     logger.error("Status snapshot rejected: \(String(describing: error), privacy: .public)")
                 }
-                model.apply(provider: provider, connection: .unavailable, reason: .snapshotRejected)
+                changed = model.apply(provider: provider, connection: .unavailable, reason: .snapshotRejected)
             }
         case .noLiveSession:
-            model.apply(provider: provider, connection: .appNotRunning)
+            changed = model.apply(provider: provider, connection: .appNotRunning)
         case .unsupported:
-            model.apply(provider: provider, connection: .unsupported, reason: .incompatibleSchema)
+            changed = model.apply(provider: provider, connection: .unsupported, reason: .incompatibleSchema)
         case .missingLocalData:
-            model.apply(provider: provider, connection: .missingLocalData, reason: .missingDatabase)
+            changed = model.apply(provider: provider, connection: .missingLocalData, reason: .missingDatabase)
         case .unavailable:
-            model.apply(provider: provider, connection: .unavailable, reason: .sourceUnavailable)
+            changed = model.apply(provider: provider, connection: .unavailable, reason: .sourceUnavailable)
         case .failure(let reason):
-            model.apply(provider: provider, connection: .unavailable, reason: reason)
+            changed = model.apply(provider: provider, connection: .unavailable, reason: reason)
         }
+        return changed
     }
 
     private func source(for provider: SourceProvider) -> any StatusSource {
@@ -273,6 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func render() {
+        presentationDirty = false
         menuBar?.updateStatus()
         guard !suspended else { panel?.hide(); return }
         panel?.update(model: model) { [weak self] in self?.openDisplayedApplication() }
@@ -297,8 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshLanguage()
         configureShortcut()
         if model.preferences.values.approvalRecognitionEnabled != true {
-            model.approvalUIIsPending = false
-            model.approvalAccessMessage = "审批窗口识别未开启"
+            _ = model.setApproval(accessMessage: "审批窗口识别未开启", uiIsPending: false)
         }
         if requestedPetID != model.preferences.values.selectedPetID { synchronizePets(force: false) }
         model.advanceRotation(now: Date())

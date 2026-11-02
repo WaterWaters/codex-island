@@ -194,6 +194,83 @@ private func entry(_ type: String, session: String = sessionID,
     #expect(observation.caughtUp)
 }
 
+@Test func projectedUserClassificationExcludesMetaAndCommandTranscripts() throws {
+    func project(_ object: [String: Any]) throws -> ClaudeProjectedEntry.Kind? {
+        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
+        return ClaudeProjectedEntry.project(data)?.kind
+    }
+    // System-injected meta entries and command transcripts are not prompts.
+    let meta = try project(["type": "user", "isSidechain": false, "isMeta": true,
+                            "message": ["role": "user", "content": "synthetic"]])
+    #expect(meta == .other)
+    let command = try project(["type": "user", "isSidechain": false, "promptId": "c1",
+                               "message": ["role": "user", "content": "synthetic"]])
+    #expect(command == .other)
+    // A sourced prompt still opens a turn, and tool pairing is never dropped.
+    let sourced = try project(["type": "user", "isSidechain": false, "promptSource": "sdk",
+                               "message": ["role": "user", "content": "synthetic"]])
+    #expect(sourced == .userPrompt)
+    let toolResult = try project(["type": "user", "isSidechain": false, "isMeta": true,
+                                  "message": ["role": "user",
+                                              "content": [["type": "tool_result", "tool_use_id": "t1"]]]])
+    #expect(toolResult == .toolResult)
+}
+
+@Test func metaUserEntriesAfterTurnEndDoNotFakeRunning() async throws {
+    let home = try makeHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let started = Date()
+    try writeRegistry(home, status: "idle", startedAt: started)
+    var prompt = entry("user")
+    prompt["promptSource"] = "sdk"
+    let meta: [String: Any] = [
+        "type": "user", "sessionId": sessionID,
+        "timestamp": "2026-01-01T00:00:01.000Z", "isSidechain": false, "isMeta": true,
+        "message": ["role": "user", "content": "synthetic"]
+    ]
+    try writeTranscript(home, lines: [prompt, entry("assistant", stop: "end_turn"), meta])
+    let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+    let observation = try await feed.read()
+    #expect(observation.snapshot.activities.isEmpty)
+    #expect(observation.snapshot.activity == nil)
+}
+
+@Test func commandTranscriptUserEntriesDoNotReopenFinishedTurn() async throws {
+    let home = try makeHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let started = Date()
+    try writeRegistry(home, status: "idle", startedAt: started)
+    var prompt = entry("user")
+    prompt["promptSource"] = "sdk"
+    // Command transcripts carry a promptId but no promptSource.
+    let command: [String: Any] = [
+        "type": "user", "sessionId": sessionID, "promptId": "cmd-1",
+        "timestamp": "2026-01-01T00:00:01.000Z", "isSidechain": false,
+        "message": ["role": "user", "content": "synthetic"]
+    ]
+    try writeTranscript(home, lines: [prompt, entry("assistant", stop: "end_turn"), command])
+    let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+    let observation = try await feed.read()
+    #expect(observation.snapshot.activities.isEmpty)
+    #expect(observation.snapshot.activity == nil)
+}
+
+@Test func sourcedPromptAfterTurnEndReopensWork() async throws {
+    let home = try makeHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let started = Date()
+    try writeRegistry(home, status: "idle", startedAt: started)
+    var prompt = entry("user")
+    prompt["promptSource"] = "sdk"
+    var next = entry("user")
+    next["promptSource"] = "sdk"
+    try writeTranscript(home, lines: [prompt, entry("assistant", stop: "end_turn"), next])
+    let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+    let observation = try await feed.read()
+    #expect(observation.snapshot.activities == [.running])
+    #expect(observation.snapshot.activity == .thinking)
+}
+
 @Test func rotationNeverHidesAttentionAndCyclesOnlyRunningSources() {
     let policy = RotationPolicy(dwell: 6, minimumHold: 3, resumeAfterHover: 2)
     let now = Date(timeIntervalSince1970: 1_000)
@@ -259,4 +336,39 @@ private func entry(_ type: String, session: String = sessionID,
     #expect(settings.sourceMode == .codex)
     let missing = try JSONDecoder().decode(IslandSettings.self, from: Data("{}".utf8))
     #expect(missing.sourceMode == .codex)
+}
+
+@Test func registryStampCacheReparsesRewrittenSessionsAndKeepsLiveWitness() throws {
+    let home = try makeHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let started = Date()
+    try writeRegistry(home, status: "busy", startedAt: started)
+    let registry = ClaudeSessionRegistry(liveness: { _ in started })
+    var cache: [URL: (ClaudeRegistryStamp, ClaudeSessionEntry)] = [:]
+    let first = try registry.read(home: home, fileCache: &cache)
+    #expect(first.entries.count == 1)
+    #expect(first.entries.first?.status == .busy)
+    #expect(!cache.isEmpty)
+    // Rewriting the same file gives new bytes and a new stamp; the cached
+    // entry must not outlive them.
+    try writeRegistry(home, status: "idle", startedAt: started)
+    let second = try registry.read(home: home, fileCache: &cache)
+    #expect(second.entries.first?.status == .idle)
+}
+
+@Test func customTitleRereadsWhenRewritten() async throws {
+    let home = try makeHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let started = Date()
+    try writeRegistry(home, status: "busy", startedAt: started)
+    try writeTranscript(home, lines: [entry("user")])
+    let titleDirectory = home.appendingPathComponent("projects/-tmp-project/\(sessionID)", isDirectory: true)
+    try FileManager.default.createDirectory(at: titleDirectory, withIntermediateDirectories: true)
+    let titleURL = titleDirectory.appendingPathComponent("custom-title.json")
+    try Data("{\"customTitle\":\"第一题\"}".utf8).write(to: titleURL)
+    let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+    #expect(try await feed.read().snapshot.sessionTitle == "第一题")
+    try Data("{\"customTitle\":\"改名\"}".utf8).write(to: titleURL)
+    // A rewrite must re-read: the cached title cannot outlive its stamp.
+    #expect(try await feed.read().snapshot.sessionTitle == "改名")
 }
