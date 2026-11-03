@@ -26,6 +26,8 @@ expected = {
     'Contents/_CodeSignature/CodeResources',
     'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Info.plist',
     'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Resources/Brand/AppIcon.png',
+    'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Resources/Brand/ProviderIcons/claude.svg',
+    'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Resources/Brand/ProviderIcons/openai.svg',
 }
 actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
 expected.update(f'Contents/Resources/CodexIsland_CodexIsland.bundle/Contents/Resources/{language}.lproj/Localizable.strings'
