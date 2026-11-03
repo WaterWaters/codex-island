@@ -210,7 +210,7 @@ import ImageIO
     model.summary = .reduce([.running])
     model.activity = .commandFailed
     model.approvalUIIsPending = true
-    #expect(model.title == "Codex")
+    #expect(model.title == "codex") // codex approval pending keeps the display label
     #expect(model.detail == "等待批准")
     #expect(model.effectState == .needsInput)
     #expect(model.petMotion == .waiting)
@@ -247,4 +247,38 @@ import ImageIO
     #expect(model.setApproval(accessMessage: "发现 Codex 审批按钮", uiIsPending: false))
     #expect(!model.approvalUIIsPending)
     #expect(!model.setApproval(accessMessage: "发现 Codex 审批按钮", uiIsPending: false))
+}
+
+@MainActor @Test func sessionKindDrivesProviderLabelWhileDemoAndExternalStayBrand() {
+    let model = IslandModel()
+    model.displayedProvider = .claude
+    model.connection = .connected
+    model.summary = .reduce([.running])
+    // No kind yet: brand fallback.
+    #expect(model.providerLabel == "Claude")
+    #expect(model.title == "Claude")
+
+    _ = model.apply(provider: .claude, connection: .connected,
+                    summary: .reduce([.running]), sessionKind: .code)
+    #expect(model.providerLabel == "code")
+    #expect(model.title == "code")
+
+    _ = model.apply(provider: .claude, connection: .connected,
+                    summary: .reduce([.running]), sessionKind: .cowork)
+    #expect(model.providerLabel == "cowork")
+    #expect(model.displayDetail.contains("cowork"))
+
+    // Codex always shows the CLI label this round.
+    _ = model.apply(provider: .codex, connection: .connected,
+                    summary: .reduce([.running]))
+    model.displayedProvider = .codex
+    #expect(model.providerLabel == "codex")
+    #expect(model.title == "codex")
+
+    // Demo/external feeds stay on brand names regardless of kind.
+    model.isDemo = true
+    #expect(model.providerLabel == "Codex")
+    model.isDemo = false
+    model.isExternalFeed = true
+    #expect(model.providerLabel == "Codex")
 }

@@ -31,6 +31,7 @@
 | `observedAt` | ISO 8601 UTC 时间；不能落后当前时间超过 30 秒或领先超过 5 秒 |
 | `isComplete` | 必须为 true；范围不完整不能按空闲处理 |
 | `activities` | 每项活动一个状态，允许 running / needsInput / blocked / ready；最多 10000 项 |
+| `sessionKind` | 可选，仅显示用：`code` / `cowork`；未知或缺失值被忽略，回落来源品牌名，永不参与校验 |
 
 只有完整快照的空数组才表示空闲。数组不能包含 `idle`。未知状态、版本错误、数据过期、文件读取或解析失败都会显示“状态暂不可用”。
 
@@ -38,4 +39,4 @@
 
 归约优先级为 needsInput → blocked → ready → running。Ready 的移除必须由生产者提供的真实已读状态决定，应用不设置倒计时清除。
 
-v0.4 增加可选的 `sessionTitle` 和 `activity`，旧版文件仍可读取。标题第一行展示，合并空白并限制长度；活动第二行展示，可选 working / thinking / runningCommand / ranCommand / editingFiles / editedFiles / usingTool / usedTool / searching / responding / needsInput / failed / commandFailed / idle。缺标题时显示 Codex；空活动数组进入 idle 常驻，不再隐藏。只有明确检测到 Codex 退出，默认实时来源才隐藏；显式文件和演示来源始终可见。
+v0.5 增加可选的 `sessionKind`：仅是岛显示标签配套键，不影响门禁与状态归约；旧版文件与未知值仍可读取。v0.4 增加可选的 `sessionTitle` 和 `activity`，旧版文件仍可读取。标题第一行展示，合并空白并限制长度；活动第二行展示，可选 working / thinking / runningCommand / ranCommand / editingFiles / editedFiles / usingTool / usedTool / searching / responding / needsInput / failed / commandFailed / idle。缺标题时显示 Codex；空活动数组进入 idle 常驻，不再隐藏。只有明确检测到 Codex 退出，默认实时来源才隐藏；显式文件和演示来源始终可见。

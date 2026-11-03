@@ -117,11 +117,11 @@ The default source reads the current user's `~/.codex/` databases and active ses
 
 Codex's private data formats can change. An incompatible source shows unavailable rather than pretending to be idle. v0.7.3 and later honor an absolute `CODEX_HOME` directory in the launch environment; invalid overrides fail explicitly. Event failures use bounded retries and show limited synchronization while preserving database-confirmed activity. The v0.7.2 release uses `~/.codex/`. Details: [local-source boundaries](docs/local-session-source.md).
 
-### Claude Code in v0.9.0
+### Claude Code in v0.9.1
 
 Select **Codex**, **Claude**, or **automatic rotation** in the menu bar or Connection settings. Rotation normally switches every 6 seconds, keeps input/error states in view, and pauses on hover. The island and VoiceOver identify the displayed provider. Clicking Claude opens the Claude desktop app; it does not locate a terminal or a specific session.
 
-Claude uses read-only local `~/.claude` session registrations and bounded transcript projections. Set an absolute `CLAUDE_CONFIG_DIR` in the launch environment for another directory; invalid overrides fail explicitly. Diagnostics omit titles, paths, session IDs and message payloads. Probe both sources with `CodexIslandProbe --source all`.
+Claude uses read-only local `~/.claude` session registrations and bounded transcript projections; desktop Cowork (local agent mode) sessions are read under the same rules from their nested store inside `~/Library/Application Support/Claude-3p`. Set an absolute `CLAUDE_CONFIG_DIR` in the launch environment for another directory, which also disables cowork discovery; invalid overrides fail explicitly. Diagnostics omit titles, paths, session IDs and message payloads. Probe both sources with `CodexIslandProbe --source all`.
 
 The recorded compatibility target is Claude Code 2.1.309 via `claude-desktop-3p`. CLI/IDE registration coverage remains unverified. Missing, ambiguous, or unreadable sources show unavailable or limited synchronization; completion does not imply unread. Pets still come from local Codex assets. [Claude source and limits](docs/claude-session-source.md).
 

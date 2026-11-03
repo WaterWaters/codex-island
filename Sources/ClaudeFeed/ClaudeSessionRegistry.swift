@@ -22,6 +22,10 @@ public struct ClaudeSessionEntry: Equatable, Sendable {
     public let name: String?
     public let entrypoint: String?
     public let version: String?
+    /// The config home this entry came from; primary home or a cowork
+    /// workspace's nested `.claude`. Transcript and title lookups stay scoped
+    /// to it so cowork identities cannot collide with primary-home ones.
+    public let home: URL
 }
 
 public struct ClaudeRegistrySnapshot: Sendable {
@@ -88,7 +92,12 @@ public struct ClaudeSessionRegistry: Sendable {
         for name in names.filter({ $0.hasSuffix(".json") }).sorted().prefix(maxSessions) {
             urls.insert(directory.appendingPathComponent(name))
         }
-        fileCache = fileCache.filter { urls.contains($0.key) }
+        // Only this home's keys drop out; keys of other homes (nested cowork
+        // homes share one feed cache) are all direct children of their own
+        // sessions directory and survive this filter.
+        fileCache = fileCache.filter {
+            urls.contains($0.key) || $0.key.deletingLastPathComponent() != directory
+        }
 
         var entries: [ClaudeSessionEntry] = []
         var skipped = 0
@@ -146,7 +155,8 @@ public struct ClaudeSessionRegistry: Sendable {
                     updatedAt: date(milliseconds: object["updatedAt"]),
                     name: validString(object["name"], limit: 512),
                     entrypoint: validString(object["entrypoint"], limit: 64),
-                    version: version)
+                    version: version,
+                    home: home)
                 entries.append(entry)
                 if let stamp = ClaudeRegistryStamp(of: url) {
                     fileCache[url] = (stamp, entry)

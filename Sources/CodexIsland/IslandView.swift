@@ -50,9 +50,22 @@ struct IslandView: View {
     private var tint: Color {
         IslandPalette.tint(for: model.effectState, settings: model.preferences.values)
     }
+    private var tintCGColor: CGColor? { tint.cgColor }
     private var highContrast: Bool { model.preferences.values.appearancePreset == .highContrast }
     private var mini: Bool { geometry.displayMode == .mini }
     private var shape: IslandShape { IslandShape(notched: geometry.hasNotch, mini: mini) }
+    /// The activity icon fills 50% of the island height; its circle rides at
+    /// a 1.25× container so the backing ring reads proportionally.
+    private var glyphIconSide: CGFloat { geometry.height * 0.5 }
+    private var glyphSide: CGFloat { glyphIconSide * 1.25 }
+    /// One provider-icon lookup per body evaluation; demo/external feeds and
+    /// machines without the app stay on the stock symbol visuals.
+    private var glyphIcon: CGImage? {
+        (model.isDemo || model.isExternalFeed)
+            ? nil
+            : ProviderIconStore.glyph(model.displayedProvider, side: glyphIconSide,
+                                      tint: tintCGColor)
+    }
 
     var body: some View {
         Button(action: openCodex) {
@@ -65,7 +78,8 @@ struct IslandView: View {
                 if mini {
                     if !geometry.hasNotch {
                         IslandActivityGlyph(state: model.effectState, paused: reduceMotion || model.motionPaused,
-                                            settings: model.preferences.values, compact: true)
+                                            settings: model.preferences.values,
+                                            icon: glyphIcon, side: glyphSide, iconSide: glyphIconSide)
                     }
                 } else {
                     PetAvatarView(motion: model.petMotion,
@@ -97,7 +111,9 @@ struct IslandView: View {
 
     private var statusRow: some View {
         HStack(spacing: 13) {
-            IslandActivityGlyph(state: model.effectState, paused: reduceMotion || model.motionPaused, settings: model.preferences.values)
+            IslandActivityGlyph(state: model.effectState, paused: reduceMotion || model.motionPaused,
+                                settings: model.preferences.values,
+                                icon: glyphIcon, side: glyphSide, iconSide: glyphIconSide)
             VStack(alignment: .leading, spacing: 6) {
                 Text(verbatim: model.title).font(.system(size: 13, weight: .semibold))
                     .truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading)

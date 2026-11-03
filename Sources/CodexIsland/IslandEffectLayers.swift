@@ -284,11 +284,20 @@ extension IslandEffectView {
 // MARK: - glyph
 
 /// Animated activity glyph: rotating symbol (running) or breathing dots (idle).
+/// When a provider icon is available the same animations ride its bitmap;
+/// without one the historical symbol/dots composition renders unchanged.
 @MainActor
 final class IslandGlyphEffectView: NSView {
+    private struct Configuration: Equatable {
+        var state: WorkState
+        var side: CGFloat
+        var iconSide: CGFloat
+        var iconID: ObjectIdentifier?
+    }
+
+    private var configuration: Configuration?
     private var tint: CGColor?
-    private var animated: WorkState?
-    private var compact = false
+    private var icon: CGImage?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -303,29 +312,45 @@ final class IslandGlyphEffectView: NSView {
         rebuild()
     }
 
-    func update(state: WorkState, compact: Bool, paused: Bool, settings: IslandSettings) {
+    func update(state: WorkState, side: CGFloat, iconSide: CGFloat, paused: Bool,
+                settings: IslandSettings, icon: CGImage? = nil) {
         let color: CGColor?
         switch state {
         case .running: color = cgColor(islandHex: settings.neonPrimary)
         case .idle: color = cgColor(0.63, 0.73, 0.86)
         default: color = nil
         }
-        if color != tint || animated != state || compact != self.compact {
+        self.icon = icon
+        let next = Configuration(state: state, side: side, iconSide: iconSide,
+                                 iconID: icon.map(ObjectIdentifier.init))
+        if configuration != next || tint != color {
+            configuration = next
             tint = color
-            animated = color == nil ? nil : state
-            self.compact = compact
             rebuild()
         }
         layer?.speed = paused ? 0 : 1
     }
 
     private func rebuild() {
-        guard layer != nil, !bounds.isEmpty, let color = tint, let state = animated else { return }
+        guard layer != nil, !bounds.isEmpty, let color = tint, let configuration else { return }
+        let state = configuration.state
+        let side = max(20, configuration.side)
+        let iconSize = max(10, configuration.iconSide)
         layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
         let diameter = bounds.size
-        let dot = compact ? 2.0 : 3.0
-        let spacing = compact ? 2.0 : 3.0
         if state == .idle {
+            if let icon {
+                let iconLayer = CALayer()
+                iconLayer.contents = icon
+                iconLayer.bounds = CGRect(x: 0, y: 0, width: iconSize, height: iconSize)
+                iconLayer.position = CGPoint(x: diameter.width / 2, y: diameter.height / 2)
+                let breathe = Self.iconBreathing()
+                iconLayer.add(breathe, forKey: "breathe")
+                layer?.addSublayer(iconLayer)
+                return
+            }
+            let dot = max(2, iconSize * 0.15)
+            let spacing = max(2, iconSize * 0.15)
             for index in -1...1 {
                 let particle = CALayer()
                 particle.bounds = CGRect(x: 0, y: 0, width: dot, height: dot)
@@ -340,16 +365,21 @@ final class IslandGlyphEffectView: NSView {
             }
             return
         }
+        if state != .running { return }
         let background = CALayer()
-        background.bounds = CGRect(origin: .zero, size: diameter)
-        background.cornerRadius = diameter.width
+        background.bounds = CGRect(origin: .zero, size: CGSize(width: side, height: side))
+        background.cornerRadius = side / 2
         background.backgroundColor = color.copy(alpha: 0.04) ?? color
+        background.position = CGPoint(x: diameter.width / 2, y: diameter.height / 2)
         layer?.addSublayer(background)
         let symbol = CALayer()
-        symbol.contents = Self.symbolImage(state.symbol, color: color,
-                                           size: compact ? 12 : 15)
-        let size = compact ? 15.0 : 20.0
-        symbol.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+        if let icon {
+            symbol.contents = icon
+        } else {
+            symbol.contents = Self.symbolImage(state.symbol, color: color,
+                                               size: iconSize * 0.75)
+        }
+        symbol.bounds = CGRect(x: 0, y: 0, width: iconSize, height: iconSize)
         symbol.position = CGPoint(x: diameter.width / 2, y: diameter.height / 2)
         let spin = CABasicAnimation(keyPath: "transform.rotation.z")
         spin.fromValue = 0
@@ -358,6 +388,21 @@ final class IslandGlyphEffectView: NSView {
         spin.repeatCount = Float.infinity
         symbol.add(spin, forKey: "spin")
         layer?.addSublayer(symbol)
+    }
+
+    /// Scale breathing for the provider icon; same rhythm as `dotBreathing`
+    /// so idle stays on one clock family.
+    static func iconBreathing() -> CAAnimation {
+        let animation = CAKeyframeAnimation(keyPath: "transform.scale")
+        let values: [CGFloat] = stride(from: 0, to: 2.0001, by: 0.25).map { t in
+            1 + 0.09 * CGFloat((sin(t * .pi) + 1) / 2)
+        }
+        animation.values = values
+        animation.keyTimes = stride(from: 0.0, to: 1.0001, by: 0.125)
+            .map { NSNumber(value: $0) }
+        animation.duration = 3.4907
+        animation.repeatCount = Float.infinity
+        return animation
     }
 
     static func dotBreathing() -> CAAnimation {
@@ -408,14 +453,17 @@ struct IslandEdgeEffect: NSViewRepresentable {
 
 struct IslandGlyphEffect: NSViewRepresentable {
     let state: WorkState
-    let compact: Bool
     let settings: IslandSettings
+    var icon: CGImage? = nil
+    var side: CGFloat = 28
+    var iconSide: CGFloat = 20
 
     func makeNSView(context: Context) -> IslandGlyphEffectView {
         IslandGlyphEffectView(frame: .zero)
     }
 
     func updateNSView(_ view: IslandGlyphEffectView, context: Context) {
-        view.update(state: state, compact: compact, paused: false, settings: settings)
+        view.update(state: state, side: side, iconSide: iconSide, paused: false,
+                    settings: settings, icon: icon)
     }
 }

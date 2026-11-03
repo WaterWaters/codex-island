@@ -14,6 +14,7 @@ struct ProviderStatus: Equatable {
     var title: String?
     var activity: SessionActivity?
     var observedAt: Date?
+    var sessionKind: SessionKind?
 }
 
 @MainActor @Observable
@@ -57,15 +58,17 @@ final class IslandModel {
     @discardableResult
     func apply(provider: SourceProvider, connection: ConnectionState, health: SourceHealth? = nil,
                reason: SourceFailureReason? = nil, summary: ActivitySummary = .reduce([]),
-               title: String? = nil, activity: SessionActivity? = nil, observedAt: Date? = nil) -> Bool {
+               title: String? = nil, activity: SessionActivity? = nil, observedAt: Date? = nil,
+               sessionKind: SessionKind? = nil) -> Bool {
         let next = ProviderStatus(connection: connection, health: health,
                                   failureReason: reason, summary: summary,
                                   title: title, activity: activity,
-                                  observedAt: observedAt)
+                                  observedAt: observedAt, sessionKind: sessionKind)
         let current = statuses[provider]
         if let current, current.connection == next.connection, current.health == next.health,
            current.failureReason == next.failureReason, current.summary == next.summary,
-           current.title == next.title, current.activity == next.activity {
+           current.title == next.title, current.activity == next.activity,
+           current.sessionKind == next.sessionKind {
             observationTimes[provider] = observedAt ?? current.observedAt
             return false
         }
@@ -117,6 +120,26 @@ final class IslandModel {
     }
 
     var providerName: String { displayedProvider.displayName }
+
+    /// Island display label. Claude Code sessions carry their surface in the
+    /// snapshot kind ("code" for claude-desktop-3p registeries, "cowork" for
+    /// desktop local-agent); Codex CLI is always "codex" while a ChatGPT
+    /// discriminator stays deliberately unimplemented until its data source
+    /// field is verified. Demo/external feeds keep the plain brand names:
+    /// previews and external snapshots must not depend on this machine.
+    var providerLabel: String {
+        if isDemo || isExternalFeed { return providerName }
+        switch displayedProvider {
+        case .codex:
+            return "codex"
+        case .claude:
+            switch status(for: .claude).sessionKind {
+            case .code: return "code"
+            case .cowork: return "cowork"
+            case nil: return providerName
+            }
+        }
+    }
     var showsProviderIdentity: Bool {
         preferences.values.sourceMode != .codex || displayedProvider == .claude
     }
@@ -124,7 +147,7 @@ final class IslandModel {
     // MARK: display
 
     var title: String {
-        let fallback = providerName
+        let fallback = providerLabel
         // AX proves a visible Codex decision, but supplies no reliable thread ID.
         if preferences.values.hideSessionTitle { return fallback }
         if displayedProvider == .codex && approvalUIIsPending { return fallback }
@@ -183,7 +206,7 @@ final class IslandModel {
             }
         }
         if showsProviderIdentity {
-            message = L10n.format("island.provider_detail", providerName, message)
+            message = L10n.format("island.provider_detail", providerLabel, message)
         }
         return message
     }

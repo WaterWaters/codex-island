@@ -51,10 +51,18 @@ actor DesktopStatusSource: StatusSource {
                                                   unresolvedIdentity: health.unresolvedIdentity))
         } catch {
             // Fixed error identifiers only: never log titles, paths or payloads.
-            let reason = (error as? FeedError)?.rawValue ?? "unknownReadFailure"
-            if lastFailure != reason { logger.error("Local status read failed: \(reason, privacy: .public)") }
+            let diagnostic = error as? StatusDatabase.SqliteDiagnostic
+            let reason = diagnostic?.error.rawValue ?? (error as? FeedError)?.rawValue ?? "unknownReadFailure"
+            if lastFailure != reason {
+                if let diagnostic {
+                    logger.error("Local status read failed: \(diagnostic.rawValue, privacy: .public)")
+                } else {
+                    logger.error("Local status read failed: \(reason, privacy: .public)")
+                }
+            }
             lastFailure = reason
-            switch error as? FeedError {
+            let feedError = diagnostic?.error ?? (error as? FeedError)
+            switch feedError {
             case .missingDatabase: return .missingLocalData
             case .incompatibleSchema: return .unsupported
             default: return .failure(SourceFailureReason(error: error))

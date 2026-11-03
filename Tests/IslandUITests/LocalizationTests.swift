@@ -103,7 +103,7 @@ import Testing
     for language in [AppLanguage.en, .zhHans, .zhHant, .ja] {
         L10n.shared.configure(language: language)
         model.preferences.values.hideSessionTitle = true
-        #expect(model.title == "Codex")
+        #expect(model.title == "codex") // display label is session-kind aware since 2026-11-02
         #expect(!model.accessibilityDescription.contains("PRIVATE"))
         #expect(!model.displayDetail.contains("PRIVATE"))
         #expect(!(model.privacyDiagnostics.json() ?? "").contains("PRIVATE"))
@@ -166,7 +166,7 @@ func localizationNativeSamplesCoverFourLanguagesPrivacyAndAppearance() throws {
             #expect(model.pets.atlas == nil)
             if model.preferences.values.hideSessionTitle {
                 #expect(!model.accessibilityDescription.contains("exceptionally"))
-                #expect(model.title == "Codex")
+                #expect(model.title == "codex") // display label is session-kind aware since 2026-11-02
             }
             return LocalizationRenderSample(id: index, model: model, notched: index % 2 == 0,
                                             caption: "\(preset.rawValue) · privacy \(index % 2 == 1 ? "on" : "off") · no pet artwork")

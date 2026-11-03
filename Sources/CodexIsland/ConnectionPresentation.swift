@@ -10,7 +10,11 @@ enum SourceFailureReason: String, Codable, Sendable {
     case snapshotRejected, sourceUnavailable
 
     init(error: Error) {
-        self = (error as? FeedError).flatMap { Self(rawValue: $0.rawValue) } ?? .unknownReadFailure
+        if let diagnostic = error as? StatusDatabase.SqliteDiagnostic {
+            self = Self(rawValue: diagnostic.error.rawValue) ?? .unknownReadFailure
+        } else {
+            self = (error as? FeedError).flatMap { Self(rawValue: $0.rawValue) } ?? .unknownReadFailure
+        }
     }
 
     init(claudeError: Error) {

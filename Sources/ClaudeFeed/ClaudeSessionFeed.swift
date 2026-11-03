@@ -30,11 +30,17 @@ private struct ClaudeRetry {
 }
 
 /// Read-only Claude Code session feed. Each read re-opens the registry and the
-/// selected transcripts; no state is written to `~/.claude`.
+/// selected transcripts; no state is written to `~/.claude`. Desktop cowork
+/// ("local agent mode") sessions are indexed from the desktop app's own store
+/// and reuse the same registry, locator and reducer against their nested
+/// config homes.
 public actor ClaudeSessionFeed {
     private let configuration: Result<ClaudeFeedConfiguration, ClaudeFeedError>
     private let registry: ClaudeSessionRegistry
     private var sessionID = UUID().uuidString
+    /// Cursors, retries, locations and titles are keyed by `home|sessionID`
+    /// because nested cowork homes share the 36-character id space with the
+    /// primary home.
     private var cursors: [String: ClaudeTranscriptCursor] = [:]
     private var retries: [String: ClaudeRetry] = [:]
     /// Stat cache for registry files; parse only when bytes change.
@@ -44,10 +50,15 @@ public actor ClaudeSessionFeed {
     /// Cached custom titles keyed by stamp, so a rewritten title re-reads.
     private var customTitles: [String: (stamp: ClaudeRegistryStamp, title: String)] = [:]
 
+    /// Sessions kept in one read across every home; the pool stays bounded
+    /// even when many historical sessions are still registered.
+    private static let maxTrackedSessions = 32
+
     public init(home: URL? = nil,
+                coworkDirectory: URL? = nil,
                 liveness: @escaping ClaudeSessionRegistry.LivenessCheck = ClaudeProcessStart.read) {
         if let home {
-            configuration = .success(ClaudeFeedConfiguration(home: home))
+            configuration = .success(ClaudeFeedConfiguration(home: home, coworkDirectory: coworkDirectory))
         } else {
             do { configuration = .success(try ClaudeFeedConfiguration()) }
             catch { configuration = .failure(.invalidConfiguration) }
@@ -72,27 +83,55 @@ public actor ClaudeSessionFeed {
         let config = try configuration.get()
         var fileCache = self.fileCache
         let registrySnapshot = try registry.read(home: config.home, fileCache: &fileCache)
+        // Primary-home entries fill the pool first; nested cowork homes follow,
+        // most recently active first. Every entry already carries the home it
+        // belongs to.
+        var combined: [(entry: ClaudeSessionEntry, hostTitle: String?)] =
+            Array(registrySnapshot.entries.prefix(Self.maxTrackedSessions)).map { ($0, nil) }
+        var coworkVersions: [String: Int] = [:]
+        let coworkScan = ClaudeCoworkStore.scan(base: config.coworkDirectory)
+        for cowork in coworkScan.sessions.sorted(by: {
+            ($0.lastActivityAt ?? .distantPast) > ($1.lastActivityAt ?? .distantPast)
+        }) {
+            guard combined.count < Self.maxTrackedSessions else { break }
+            // A home that vanished between scan and read carries no entries;
+            // registry read failures mean no live evidence, not unavailable.
+            guard let snapshot = try? registry.read(home: cowork.configHome, fileCache: &fileCache) else {
+                continue
+            }
+            for entry in snapshot.entries {
+                guard combined.count < Self.maxTrackedSessions else { break }
+                combined.append((entry, cowork.title.isEmpty ? nil : cowork.title))
+            }
+            if let version = snapshot.version { coworkVersions[version, default: 0] += 1 }
+        }
         self.fileCache = fileCache
         var activities: [WorkState] = []
-        var candidates: [(entry: ClaudeSessionEntry, state: WorkState, activity: SessionActivity?, at: Date?, transcript: URL?)] = []
+        var candidates: [(entry: ClaudeSessionEntry, state: WorkState, activity: SessionActivity?,
+                          at: Date?, transcript: URL?, hostTitle: String?)] = []
         var caughtUp = true
-        var unresolved = registrySnapshot.malformed > 0
+        var unresolved = registrySnapshot.malformed > 0 || coworkScan.malformed > 0
         var degraded = 0
         var retrying = 0
-        let liveIDs = Set(registrySnapshot.entries.map(\.sessionID))
-        cursors = cursors.filter { liveIDs.contains($0.key) }
-        retries = retries.filter { liveIDs.contains($0.key) }
+        let liveKeys = Set(combined.map { Self.trackKey(of: $0.entry) })
+        cursors = cursors.filter { liveKeys.contains($0.key) }
+        retries = retries.filter { liveKeys.contains($0.key) }
 
-        for entry in registrySnapshot.entries.prefix(32) {
+        for (entry, hostTitle) in combined {
+            let key = Self.trackKey(of: entry)
             let transcript: URL?
-            if let cached = located[entry.sessionID], cached.cwd == entry.cwd {
+            if let cached = located[key], cached.cwd == entry.cwd {
                 transcript = cached.url
             } else {
                 do {
                     transcript = try ClaudeTranscriptLocator.locate(
                         sessionID: entry.sessionID, cwd: entry.cwd,
-                        projects: config.projectsDirectory)
-                    located[entry.sessionID] = (entry.cwd, transcript)
+                        projects: entry.home.appendingPathComponent("projects", isDirectory: true))
+                    // A missing transcript is a timing race, not an identity
+                    // verdict: the CLI writes the registry before the first
+                    // JSONL line. Cache only confirmed locations so a session
+                    // that started before its transcript exists can recover.
+                    if let transcript { located[key] = (entry.cwd, transcript) }
                 } catch {
                     transcript = nil
                     unresolved = true
@@ -102,22 +141,22 @@ public actor ClaudeSessionFeed {
                 unresolved = true
                 continue
             }
-            var cursor = cursors[entry.sessionID] ?? ClaudeTranscriptCursor(sessionID: entry.sessionID)
-            if let retry = retries[entry.sessionID], now < retry.nextAttempt {
+            var cursor = cursors[key] ?? ClaudeTranscriptCursor(sessionID: entry.sessionID)
+            if let retry = retries[key], now < retry.nextAttempt {
                 caughtUp = false
                 retrying += 1
                 degraded += 1
                 if entry.status.isBusy {
                     activities.append(.running)
                     candidates.append((entry, .running, .working,
-                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript))
+                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript, hostTitle))
                 }
-                cursors[entry.sessionID] = cursor
+                cursors[key] = cursor
                 continue
             }
             do {
                 let complete = try cursor.update(url: transcript, now: now)
-                if complete { retries.removeValue(forKey: entry.sessionID) }
+                if complete { retries.removeValue(forKey: key) }
                 caughtUp = caughtUp && complete
                 switch ClaudeSignalReducer.reduce(entry: entry, signals: cursor.signals, complete: complete) {
                 case .work(let state, let activity):
@@ -127,22 +166,22 @@ public actor ClaudeSessionFeed {
                     let fromRegistryWait = entry.status.isWaiting
                     if fromRegistryWait && !complete { caughtUp = false }
                     candidates.append((entry, state, activity,
-                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript))
+                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript, hostTitle))
                 case .unavailable:
                     unresolved = true
                 }
             } catch {
-                retries[entry.sessionID] = ClaudeRetry(previous: retries[entry.sessionID], now: now)
+                retries[key] = ClaudeRetry(previous: retries[key], now: now)
                 degraded += 1
                 caughtUp = false
                 unresolved = true
                 if entry.status.isBusy {
                     activities.append(.running)
                     candidates.append((entry, .running, .working,
-                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript))
+                                       cursor.signals.lastActivityAt ?? entry.statusUpdatedAt, transcript, hostTitle))
                 }
             }
-            cursors[entry.sessionID] = cursor
+            cursors[key] = cursor
         }
 
         let priority: [WorkState: Int] = [.needsInput: 4, .blocked: 3, .ready: 2, .running: 1, .idle: 0]
@@ -154,28 +193,44 @@ public actor ClaudeSessionFeed {
             return $0.entry.sessionID < $1.entry.sessionID
         }
         let title = selected.flatMap { candidate -> String? in
-            resolveTitle(entry: candidate.entry,
-                         signals: cursors[candidate.entry.sessionID]?.signals,
+            resolveTitle(entry: candidate.entry, hostTitle: candidate.hostTitle,
+                         signals: cursors[Self.trackKey(of: candidate.entry)]?.signals,
                          transcript: candidate.transcript)
         }
         let activity = selected?.activity
+        // Display-only session kind from the winner's registry entrypoint;
+        // unknown entries fall back to the brand label downstream.
+        let sessionKind = selected.flatMap { SessionKind.from(entrypoint: $0.entry.entrypoint) }
         return ClaudeFeedObservation(
             snapshot: ActivitySnapshot(
                 source: "claude-local-session-v1", sessionID: sessionID, observedAt: Date(),
                 activities: activities, sessionTitle: title,
-                activity: activity == .idle ? nil : activity),
-            liveSessions: registrySnapshot.entries.count,
+                activity: activity == .idle ? nil : activity,
+                sessionKind: sessionKind?.rawValue),
+            liveSessions: combined.count,
             trackedSessions: cursors.count,
             caughtUp: caughtUp && !unresolved,
             degradedSessions: degraded,
             retryingSessions: retrying,
             unresolvedIdentity: unresolved,
-            version: registrySnapshot.version)
+            version: registrySnapshot.version
+                ?? coworkVersions.max { $0.value < $1.value }?.key)
     }
 
-    private func resolveTitle(entry: ClaudeSessionEntry, signals: ClaudeTurnSignals?,
-                              transcript: URL?) -> String? {
-        if let transcript, let title = readCustomTitle(transcript: transcript, sessionID: entry.sessionID) {
+    /// Cursor and cache keys carry the home path so the same UUID from a
+    /// cowork's nested home can never alias a primary-home session.
+    static func trackKey(of entry: ClaudeSessionEntry) -> String {
+        entry.home.standardizedFileURL.path + "|" + entry.sessionID
+    }
+
+    /// Cowork host titles outrank the registry's derived names: the nested
+    /// home carries a "derived" placeholder name, the workspace carries the
+    /// product title.
+    private func resolveTitle(entry: ClaudeSessionEntry, hostTitle: String?,
+                              signals: ClaudeTurnSignals?, transcript: URL?) -> String? {
+        if let hostTitle, !hostTitle.isEmpty { return hostTitle }
+        if let transcript, let title = readCustomTitle(Self.trackKey(of: entry), transcript: transcript,
+                                                       sessionID: entry.sessionID) {
             return title
         }
         if let title = signals?.customTitle, !title.isEmpty { return title }
@@ -183,19 +238,19 @@ public actor ClaudeSessionFeed {
         return entry.name
     }
 
-    private func readCustomTitle(transcript: URL, sessionID: String) -> String? {
+    private func readCustomTitle(_ key: String, transcript: URL, sessionID: String) -> String? {
         let url = transcript.deletingLastPathComponent()
             .appendingPathComponent(sessionID, isDirectory: true)
             .appendingPathComponent("custom-title.json")
         let stamp = ClaudeRegistryStamp(of: url)
-        if let stamp, let cached = customTitles[sessionID], cached.stamp == stamp {
+        if let stamp, let cached = customTitles[key], cached.stamp == stamp {
             return cached.title
         }
         guard let data = try? ClaudeFileReader.read(url: url, maxBytes: 8_192),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let title = object["customTitle"] as? String,
               !title.isEmpty, title.utf8.count <= 512 else { return nil }
-        if let stamp { customTitles[sessionID] = (stamp, title) }
+        if let stamp { customTitles[key] = (stamp, title) }
         return title
     }
 }

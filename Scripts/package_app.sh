@@ -18,8 +18,8 @@ if [[ -n "$PREVIEW_STATE" ]]; then
   BUNDLE_ID=dev.water.codex-island.preview
 fi
 MACOS_MIN_VERSION=14.0
-MARKETING_VERSION=0.9.0
-BUILD_NUMBER=16
+MARKETING_VERSION=0.9.1
+BUILD_NUMBER=17
 ARCH_LIST=( ${ARCHES:-$(uname -m)} )
 export CLANG_MODULE_CACHE_PATH="$ROOT/.build/module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT/.build/module-cache"
@@ -50,8 +50,12 @@ cp "$ROOT/Artwork/AppIcon.icns" "$STAGED_APP/Contents/Resources/AppIcon.icns"
 # Reconstruct the resource bundle from an explicit public file list. Never
 # copy a build bundle wholesale: incremental outputs can retain old resources.
 BRAND_BUNDLE="$STAGED_APP/Contents/Resources/CodexIsland_CodexIsland.bundle"
-mkdir -p "$BRAND_BUNDLE/Contents/Resources/Brand"
+mkdir -p "$BRAND_BUNDLE/Contents/Resources/Brand/ProviderIcons"
 cp "$ROOT/Sources/CodexIsland/Resources/Brand/AppIcon.png" "$BRAND_BUNDLE/Contents/Resources/Brand/AppIcon.png"
+for ICON in claude openai; do
+  cp "$ROOT/Sources/CodexIsland/Resources/Brand/ProviderIcons/$ICON.svg" \
+    "$BRAND_BUNDLE/Contents/Resources/Brand/ProviderIcons/$ICON.svg"
+done
 for LANGUAGE in en zh-Hans zh-Hant ja; do
   mkdir -p "$BRAND_BUNDLE/Contents/Resources/$LANGUAGE.lproj"
   cp "$ROOT/Sources/CodexIsland/Resources/Localization/$LANGUAGE.lproj/Localizable.strings" \

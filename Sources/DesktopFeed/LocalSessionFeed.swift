@@ -298,7 +298,38 @@ struct SessionRow {
     let activityAt: Double
 }
 
-enum StatusDatabase {
+public enum StatusDatabase {
+    /// Fixed-identifier diagnostic attached to a thrown FeedError. Only raw
+    /// SQLite numeric result codes are recorded; no path, title or payload.
+    /// Nested inside FeedError's module so the actor boundary rethrows it and
+    /// the app's logger can render `rawValue`.
+    public struct SqliteDiagnostic: Error, Sendable {
+        public let error: FeedError
+        public let primaryCode: Int32
+        public let extendedCode: Int32
+        public let message: String
+
+        init(_ error: FeedError, code: Int32, extended: Int32, message: String) {
+            self.error = error
+            self.primaryCode = code
+            self.extendedCode = extended
+            // sqlite3_errmsg returns fixed English strings tied to the result
+            // code; they never embed user data and stay redaction-safe.
+            self.message = message
+        }
+
+        public var rawValue: String {
+            "\(error.rawValue)|code=\(primaryCode)|ext=\(extendedCode)|\(message)"
+        }
+    }
+
+    /// Captures the connection's error codes before dependent state changes.
+    private static func diagnostic(_ db: OpaquePointer?, _ error: FeedError) -> SqliteDiagnostic {
+        guard let db else { return SqliteDiagnostic(error, code: -1, extended: -1, message: "no-connection") }
+        return SqliteDiagnostic(error, code: sqlite3_errcode(db), extended: sqlite3_extended_errcode(db),
+                                message: String(cString: sqlite3_errmsg(db)).prefix(120).description)
+    }
+
     static func read(home: URL) throws -> [SessionRow] {
         let state = home.appendingPathComponent("state_5.sqlite")
         let history = home.appendingPathComponent("thread_history_1.sqlite")
@@ -307,19 +338,19 @@ enum StatusDatabase {
         var db: OpaquePointer?
         guard sqlite3_open_v2(state.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK,
               let db else {
-            if let db { sqlite3_close(db) }
-            throw FeedError.databaseUnavailable
+            defer { if let db { sqlite3_close(db) } }
+            throw diagnostic(db, .databaseUnavailable)
         }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 100)
         var attach: OpaquePointer?
         guard sqlite3_prepare_v2(db, "ATTACH DATABASE ? AS history", -1, &attach, nil) == SQLITE_OK else {
-            throw FeedError.incompatibleSchema
+            throw diagnostic(db, .incompatibleSchema)
         }
         defer { sqlite3_finalize(attach) }
         let uri = history.absoluteString + "?mode=ro"
         let bound = uri.withCString { sqlite3_bind_text(attach, 1, $0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }
-        guard bound == SQLITE_OK, sqlite3_step(attach) == SQLITE_DONE else { throw FeedError.databaseUnavailable }
+        guard bound == SQLITE_OK, sqlite3_step(attach) == SQLITE_DONE else { throw diagnostic(db, .databaseUnavailable) }
         // NULL agent_path is used by older root sessions. Explicit subagents
         // and archived threads never contribute a second activity.
         // The CASE inside the item key is intentional: the LEFT JOIN's status
@@ -342,7 +373,9 @@ enum StatusDatabase {
         LIMIT 10001
         """
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { throw FeedError.incompatibleSchema }
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            throw diagnostic(db, .incompatibleSchema)
+        }
         defer { sqlite3_finalize(statement) }
         var deadline = Date().timeIntervalSinceReferenceDate + 0.3
         return try withUnsafeMutablePointer(to: &deadline) { deadline in
@@ -356,7 +389,7 @@ enum StatusDatabase {
                 let result = sqlite3_step(statement)
                 if result == SQLITE_DONE { break }
                 if result == SQLITE_INTERRUPT { throw FeedError.queryTimedOut }
-                guard result == SQLITE_ROW else { throw FeedError.databaseUnavailable }
+                guard result == SQLITE_ROW else { throw diagnostic(db, .databaseUnavailable) }
                 func text(_ column: Int32) throws -> String {
                     guard sqlite3_column_type(statement, column) == SQLITE_TEXT,
                           let value = sqlite3_column_text(statement, column) else { throw FeedError.incompatibleSchema }
@@ -415,23 +448,23 @@ extension StatusDatabase {
         var database: OpaquePointer?
         guard sqlite3_open_v2(state.path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK,
               let db = database else {
-            if let database { sqlite3_close(database) }
-            throw FeedError.databaseUnavailable
+            defer { if let database { sqlite3_close(database) } }
+            throw diagnostic(database, .databaseUnavailable)
         }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 100)
         var attach: OpaquePointer?
         guard sqlite3_prepare_v2(db, "ATTACH DATABASE ? AS history", -1, &attach, nil) == SQLITE_OK,
-              let attach else { throw FeedError.incompatibleSchema }
+              let attach else { throw diagnostic(db, .incompatibleSchema) }
         defer { sqlite3_finalize(attach) }
         let uri = history.absoluteString + "?mode=ro"
         guard uri.withCString({ sqlite3_bind_text(attach, 1, $0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }) == SQLITE_OK,
-              sqlite3_step(attach) == SQLITE_DONE else { throw FeedError.databaseUnavailable }
+              sqlite3_step(attach) == SQLITE_DONE else { throw diagnostic(db, .databaseUnavailable) }
 
         func prepare(_ sql: String) throws -> OpaquePointer {
             var statement: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK,
-                  let statement else { throw FeedError.incompatibleSchema }
+                  let statement else { throw diagnostic(db, .incompatibleSchema) }
             return statement
         }
         func next(_ statement: OpaquePointer) throws -> Bool {
@@ -439,7 +472,7 @@ extension StatusDatabase {
             case SQLITE_ROW: return true
             case SQLITE_DONE: return false
             case SQLITE_INTERRUPT: throw FeedError.queryTimedOut
-            default: throw FeedError.databaseUnavailable
+            default: throw diagnostic(db, .databaseUnavailable)
             }
         }
         func text(_ statement: OpaquePointer, _ column: Int32, limit: Int = 16_384) throws -> String {

@@ -5,6 +5,19 @@ import IslandCore
 
 private let sessionID = "00000000-0000-4000-8000-000000000001"
 
+/// Reducer tests build entries without a registry; the home is irrelevant
+/// there and defaults away instead of widening the public struct.
+extension ClaudeSessionEntry {
+    init(pid: Int32, sessionID: String, cwd: String, startedAt: Date, status: ClaudeSessionStatus,
+         waitingFor: String?, statusUpdatedAt: Date?, updatedAt: Date?,
+         name: String?, entrypoint: String?, version: String?) {
+        self.init(pid: pid, sessionID: sessionID, cwd: cwd, startedAt: startedAt, status: status,
+                  waitingFor: waitingFor, statusUpdatedAt: statusUpdatedAt, updatedAt: updatedAt,
+                  name: name, entrypoint: entrypoint, version: version,
+                  home: URL(fileURLWithPath: "/synthetic-claude-home"))
+    }
+}
+
 private func makeHome() throws -> URL {
     let home = FileManager.default.temporaryDirectory
         .appendingPathComponent("claude-feed-\(UUID().uuidString)", isDirectory: true)
@@ -15,13 +28,15 @@ private func makeHome() throws -> URL {
 
 private func writeRegistry(_ home: URL, pid: Int32 = 4242, status: String = "busy",
                            startedAt: Date = Date(), session: String = sessionID,
-                           cwd: String = "/tmp/project") throws {
-    let object: [String: Any] = [
+                           cwd: String = "/tmp/project",
+                           entrypoint: String? = nil) throws {
+    var object: [String: Any] = [
         "pid": pid, "sessionId": session, "cwd": cwd,
         "startedAt": startedAt.timeIntervalSince1970 * 1000,
         "status": status, "statusUpdatedAt": startedAt.timeIntervalSince1970 * 1000,
         "name": "Synthetic session", "version": "2.1.309"
     ]
+    if let entrypoint { object["entrypoint"] = entrypoint }
     let data = try JSONSerialization.data(withJSONObject: object)
     try data.write(to: home.appendingPathComponent("sessions/\(pid).json"))
 }
@@ -184,6 +199,36 @@ private func entry(_ type: String, session: String = sessionID,
     #expect(observation.caughtUp)
 }
 
+@Test func missingTranscriptRecoversOnceTheCLIWritesIt() async throws {
+    // The CLI writes the registry before the first transcript line. The feed
+    // must report the session unresolved during that window and then recover:
+    // caching the miss would pin "同步受限" until the app restarts.
+    let home = try makeHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let started = Date()
+    try writeRegistry(home, status: "busy", startedAt: started)
+    let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+
+    let before = try await feed.read()
+    #expect(before.liveSessions == 1)
+    #expect(before.unresolvedIdentity)
+    // A busy registry entry without transcript evidence cannot claim running:
+    // the reducer returns unavailable and the snapshot stays empty.
+    #expect(before.snapshot.activities.isEmpty)
+    #expect(!before.caughtUp)
+
+    try writeTranscript(home, lines: [
+        entry("user"),
+        entry("assistant", stop: "tool_use", tool: ("t1", "Bash"))
+    ])
+    let after = try await feed.read()
+    #expect(after.liveSessions == 1)
+    #expect(!after.unresolvedIdentity)
+    #expect(after.snapshot.activities == [.running])
+    #expect(after.snapshot.activity == .runningCommand)
+    #expect(after.caughtUp)
+}
+
 @Test func feedWithoutLiveSessionsReportsZero() async throws {
     let home = try makeHome()
     defer { try? FileManager.default.removeItem(at: home) }
@@ -192,6 +237,30 @@ private func entry(_ type: String, session: String = sessionID,
     #expect(observation.liveSessions == 0)
     #expect(observation.snapshot.activities.isEmpty)
     #expect(observation.caughtUp)
+}
+
+@Test func feedSnapshotCarriesKindFromWinnerEntrypoint() async throws {
+    do {
+        let home = try makeHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let started = Date()
+        try writeRegistry(home, status: "busy", startedAt: started, entrypoint: "claude-desktop-3p")
+        try writeTranscript(home, lines: [entry("user")])
+        let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+        let observation = try await feed.read()
+        #expect(observation.snapshot.kind == .code)
+    }
+    do {
+        // Unknown entrypoints keep the brand label path: the snapshot kind stays nil.
+        let home = try makeHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let started = Date()
+        try writeRegistry(home, status: "busy", startedAt: started, entrypoint: "cli")
+        try writeTranscript(home, lines: [entry("user")])
+        let feed = ClaudeSessionFeed(home: home, liveness: { _ in started })
+        let observation = try await feed.read()
+        #expect(observation.snapshot.kind == nil)
+    }
 }
 
 @Test func projectedUserClassificationExcludesMetaAndCommandTranscripts() throws {

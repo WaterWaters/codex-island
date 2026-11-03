@@ -144,7 +144,12 @@ import Testing
     let fixture = try Fixture()
     defer { fixture.remove() }
     try fixture.execute("history", "DROP TABLE thread_turns")
-    await #expect(throws: FeedError.incompatibleSchema) { try await LocalSessionFeed(home: fixture.root).read() }
+    await #expect {
+        try await LocalSessionFeed(home: fixture.root).read()
+    } throws: { error in
+        (error as? FeedError) == .incompatibleSchema
+            || (error as? StatusDatabase.SqliteDiagnostic)?.error == .incompatibleSchema
+    }
     try FileManager.default.removeItem(at: fixture.root.appendingPathComponent("thread_history_1.sqlite"))
     await #expect(throws: FeedError.missingDatabase) { try await LocalSessionFeed(home: fixture.root).read() }
 }

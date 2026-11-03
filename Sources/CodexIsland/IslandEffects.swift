@@ -114,9 +114,15 @@ struct IslandActivityGlyph: View {
     let state: WorkState
     let paused: Bool
     var settings = IslandSettings()
-    var compact = false
+    /// Provider icon rendered once from the installed apps; nil falls back to
+    /// the historical symbol/dots visuals.
+    var icon: CGImage? = nil
+    /// Container edge (the translucent circle) and the icon edge. The island
+    /// derives both from its height: the icon fills 50% of it.
+    var side: CGFloat = 28
+    var iconSide: CGFloat = 20
 
-    private var diameter: CGFloat { compact ? 20 : 28 }
+    private var diameter: CGFloat { side }
 
     private var animatedGlyph: Bool {
         !paused && settings.animationsEnabled
@@ -127,10 +133,12 @@ struct IslandActivityGlyph: View {
     var body: some View {
         Group {
             if animatedGlyph {
-                IslandGlyphEffect(state: state, compact: compact, settings: settings)
+                IslandGlyphEffect(state: state, settings: settings, icon: icon,
+                                  side: side, iconSide: iconSide)
                     .allowsHitTesting(false)
             } else {
-                IslandStaticGlyph(state: state, settings: settings, compact: compact)
+                IslandStaticGlyph(state: state, settings: settings, icon: icon,
+                                  side: side, iconSide: iconSide)
                     .allowsHitTesting(false)
             }
         }
@@ -143,28 +151,36 @@ struct IslandActivityGlyph: View {
 private struct IslandStaticGlyph: View {
     let state: WorkState
     let settings: IslandSettings
-    let compact: Bool
-
-    private var diameter: CGFloat { compact ? 20 : 28 }
+    var icon: CGImage? = nil
+    var side: CGFloat = 28
+    var iconSide: CGFloat = 20
 
     var body: some View {
         let tint = IslandPalette.tint(for: state, settings: settings)
         Group {
-            if state == .idle {
-                HStack(spacing: compact ? 2 : 3) {
+            if let icon, state == .running || state == .idle {
+                // Fixed poses of the new animated branches: the spin's start
+                // angle for running, a mid-breathe hold for idle.
+                Image(decorative: icon, scale: 2, orientation: .up)
+                    .resizable()
+                    .frame(width: iconSide, height: iconSide)
+                    .opacity(state == .idle ? 0.65 : 1)
+            } else if state == .idle {
+                let dot = max(2, iconSide * 0.15)
+                HStack(spacing: dot / 2) {
                     ForEach(0..<3) { index in
                         // The historical tick ran at t = 2.4 in this branch.
-                        Circle().fill(tint).frame(width: compact ? 2 : 3, height: compact ? 2 : 3)
+                        Circle().fill(tint).frame(width: dot, height: dot)
                             .opacity(0.25 + (sin(2.4 * 1.8 - Double(index) * 0.8) + 1) * 0.32)
                     }
                 }
             } else {
                 Image(systemName: state.symbol)
-                    .font(.system(size: compact ? 12 : 15, weight: .semibold))
+                    .font(.system(size: iconSide * 0.75, weight: .semibold))
             }
         }
         .foregroundStyle(tint)
-        .frame(width: diameter, height: diameter)
-        .background(tint.opacity(state == .running ? 0.04 : 0.07), in: .circle)
+        .frame(width: side, height: side)
+        .background(state == .idle && icon != nil ? Color.clear : tint.opacity(state == .running ? 0.04 : 0.07), in: .circle)
     }
 }

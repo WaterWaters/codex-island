@@ -101,6 +101,31 @@ private func snapshot(_ states: [WorkState], session: String = "a", age: TimeInt
     let value = try decoder.decode(ActivitySnapshot.self, from: Data(raw.utf8))
     #expect(value.activity == nil)
     #expect(value.sessionTitle == nil)
+    #expect(value.sessionKind == nil)
+}
+
+@Test func sessionKindDecodeToleratesMissingUnknownAndEquivalentValues() throws {
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    func decode(_ fields: String) throws -> ActivitySnapshot {
+        let raw = #"{"schemaVersion":1,"source":"fixture","sessionID":"a","observedAt":"2026-10-21T02:00:00Z","isComplete":true,"activities":["running"]"# + fields
+        return try decoder.decode(ActivitySnapshot.self, from: Data(raw.utf8))
+    }
+    #expect(try decode(#"}"#).kind == nil)
+    #expect(try decode(#","sessionKind":"code"}"#).kind == .code)
+    #expect(try decode(#","sessionKind":"cowork"}"#).kind == .cowork)
+    // An unknown kind stays display-only and must never reject the snapshot.
+    let unknown = try decode(#","sessionKind":"chatgpt"}"#)
+    #expect(unknown.sessionKind == "chatgpt")
+    #expect(unknown.kind == nil)
+    _ = try unknown.validated(now: unknown.observedAt)
+}
+
+@Test func sessionKindEntrypointsMapToKnownSurfaces() {
+    #expect(SessionKind.from(entrypoint: "claude-desktop-3p") == .code)
+    #expect(SessionKind.from(entrypoint: "local-agent") == .cowork)
+    #expect(SessionKind.from(entrypoint: "cli") == nil)
+    #expect(SessionKind.from(entrypoint: nil) == nil)
 }
 
 @Test func activityLabelsDistinguishRunningAndFinishedCommands() {

@@ -117,11 +117,11 @@ v0.8.0 另提供标题隐私、可选登录时启动、主动启用的 ⌃⌥⌘
 
 Codex 的内部数据格式可能变化。来源不兼容时会显示不可用，不会假装空闲。v0.7.3 起支持启动环境中的绝对目录 `CODEX_HOME`，无效覆盖会明确报错；事件失败会有界退避，并在保留数据库已证实活动的同时显示同步受限。已发布的 v0.7.2 读取 `~/.codex/`。详见 [本机来源边界](local-session-source.md)。
 
-### v0.9.0 的 Claude Code 支持
+### v0.9.1 的 Claude Code 支持
 
 菜单栏及连接设置可选 **Codex**、**Claude** 或 **自动轮播**。轮播通常每 6 秒切换，优先保留需要介入或受阻的来源，悬停时暂停；岛和 VoiceOver 标明当前来源。点击 Claude 打开其桌面应用，不猜测终端窗口或精确会话。
 
-Claude 只读本机 `~/.claude` 活动注册表和有界事件投影；自定义目录通过启动环境中的绝对路径 `CLAUDE_CONFIG_DIR` 指定，无效覆盖明确报错。诊断不含标题、路径、会话 ID 或消息载荷；`CodexIslandProbe --source all` 可检查两个来源。
+Claude 只读本机 `~/.claude` 活动注册表和有界事件投影；桌面 Cowork（本地代理模式）会话按相同约束读取其在 `~/Library/Application Support/Claude-3p` 内的嵌套数据。自定义目录通过启动环境中的绝对路径 `CLAUDE_CONFIG_DIR` 指定，同时停用 cowork 发现，无效覆盖明确报错。诊断不含标题、路径、会话 ID 或消息载荷；`CodexIslandProbe --source all` 可检查两个来源。
 
 已记录的兼容对象为 Claude Code 2.1.309 的 `claude-desktop-3p` 入口，CLI / IDE 注册表覆盖仍待验证。缺失、歧义或不可读来源显示不可用或同步受限，完成不等于未读；宠物仍使用本机 Codex 素材。[Claude 来源与限制](claude-session-source.md)。
 

@@ -11,6 +11,12 @@ public enum ClaudeFeedError: String, Error, Sendable {
 public struct ClaudeFeedConfiguration: Sendable {
     public let home: URL
     public let usesHomeOverride: Bool
+    /// Desktop cowork ("local agent mode") sessions keep their own nested
+    /// config homes under the desktop app's data directory, independent of
+    /// `CLAUDE_CONFIG_DIR`. Discovery is suppressed with an explicit home
+    /// override so redirected tests and fixtures stay isolated; tests inject
+    /// a directory here directly.
+    public let coworkDirectory: URL?
 
     public init(environment: [String: String] = ProcessInfo.processInfo.environment,
                 userHome: URL = FileManager.default.homeDirectoryForCurrentUser) throws {
@@ -20,15 +26,27 @@ public struct ClaudeFeedConfiguration: Sendable {
             }
             home = URL(fileURLWithPath: value, isDirectory: true).standardizedFileURL
             usesHomeOverride = true
+            coworkDirectory = nil
         } else {
             home = userHome.appendingPathComponent(".claude", isDirectory: true)
             usesHomeOverride = false
+            coworkDirectory = Self.defaultCoworkDirectory(userHome: userHome)
         }
     }
 
-    init(home: URL) {
+    init(home: URL, coworkDirectory: URL? = nil) {
         self.home = home
         usesHomeOverride = false
+        self.coworkDirectory = coworkDirectory
+    }
+
+    /// `…/Library/Application Support/Claude-3p/local-agent-mode-sessions`.
+    public static func defaultCoworkDirectory(userHome: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL? {
+        userHome
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("Claude-3p", isDirectory: true)
+            .appendingPathComponent("local-agent-mode-sessions", isDirectory: true)
     }
 
     public var sessionsDirectory: URL { home.appendingPathComponent("sessions", isDirectory: true) }

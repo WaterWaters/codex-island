@@ -24,6 +24,22 @@ public enum WorkState: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Which Claude Code surface a session runs in, for display labels only:
+/// Claude Code registry rows carry `entrypoint`; anything unverified maps to
+/// nil and keeps the plain brand label.
+public enum SessionKind: String, Equatable, Sendable, CaseIterable {
+    case code
+    case cowork
+
+    public static func from(entrypoint: String?) -> Self? {
+        switch entrypoint {
+        case "claude-desktop-3p": .code
+        case "local-agent": .cowork
+        default: nil
+        }
+    }
+}
+
 public enum SessionActivity: String, Codable, Sendable {
     case working, thinking, runningCommand, ranCommand, editingFiles, editedFiles
     case usingTool, usedTool, searching, responding, needsInput, failed, commandFailed, idle
@@ -73,10 +89,15 @@ public struct ActivitySnapshot: Codable, Equatable, Sendable {
     public let activities: [WorkState]
     public let sessionTitle: String?
     public let activity: SessionActivity?
+    /// Raw display-only session kind ("code"/"cowork"). Unknown or absent
+    /// values decode fine and collapse to nil at display time; the field is
+    /// never validated and must not affect gating.
+    public let sessionKind: String?
 
     public init(source: String, sessionID: String, observedAt: Date,
                 isComplete: Bool = true, activities: [WorkState], schemaVersion: Int = 1,
-                sessionTitle: String? = nil, activity: SessionActivity? = nil) {
+                sessionTitle: String? = nil, activity: SessionActivity? = nil,
+                sessionKind: String? = nil) {
         self.schemaVersion = schemaVersion
         self.source = source
         self.sessionID = sessionID
@@ -85,7 +106,11 @@ public struct ActivitySnapshot: Codable, Equatable, Sendable {
         self.activities = activities
         self.sessionTitle = sessionTitle
         self.activity = activity
+        self.sessionKind = sessionKind
     }
+
+    /// Typed view of the raw kind; unknown snapshot strings stay nil.
+    public var kind: SessionKind? { sessionKind.flatMap(SessionKind.init(rawValue:)) }
 
     public var displaySessionTitle: String? {
         guard let sessionTitle else { return nil }

@@ -1,6 +1,14 @@
 # GitHub 发布准备记录
 
-日期：2026-10-28；本次版本 0.9.0 build 16。下方 0.8.x、0.7.x 和未发布阶段记录作为历史证据保留。
+日期：2026-11-03；本次版本 0.9.1 build 17。下方 0.9.0、0.8.x、0.7.x 和未发布阶段记录作为历史证据保留。
+
+## 0.9.1 双来源陪伴发布检查
+
+- 变更范围：桌面 Cowork 会话来源、活动图标（随包官方矢量、50% 岛高、`code`/`cowork` 会话种类标签）、岛缘效果 Core Animation 化、轮询见证跳读与缓存去重、Claude 回合结束与定位缓存修复、SQLite 脱敏诊断。各项实现与测试证据记录在本地迭代计划（git 忽略）。
+- 本机 Release 回归 236 项（53+51+89+16+27）全部通过，exit 0；不使用真实聊天或个人数据。公开文件检查与打包 `--check-resources`（含 provider icons SVG 实际加载）以本轮执行结果为准。
+- 性能复测（同法 300 秒窗口）见 [性能文档](performance.md) 的基准语义变更节；数字为本机对照，不设预算，不替代实机目测。
+- 双平台 CI、通用包、签名与公开下载检查以 [Actions](https://github.com/WaterWaters/codex-island/actions) 和实际 release 记录为准；源码回归不代替发布二进制启动验证。
+- 兼容对象不变：Codex 本机历史、Claude Code 2.1.309 / claude-desktop-3p / 本地代理模式（2.1.309）。CLI/IDE 注册表覆盖、macOS 14 / Intel 桌面、完整 sleep / lock / Space / 显示器组合、VoiceOver 实际朗读仍待验收。ad-hoc 签名未公证。P0 效果与图标实机目测（mini、暂停 / quiet / highContrast、双来源轮换）未逐项复核，保留为后续目测点。
 
 ## 0.9.0 Claude Code 兼容发布检查
 

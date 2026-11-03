@@ -142,7 +142,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         synchronizePets(force: false)
         observeSystem()
         startPolling()
+        prewarmProviderIcons()
         if onboardingProgress.shouldPresentAutomatically { showOnboarding() }
+    }
+
+    /// Warms the provider icon caches off the first island render so the very
+    /// first frame never pays the bundle lookup synchronously.
+    private func prewarmProviderIcons() {
+        Task { @MainActor in
+            for side: CGFloat in [11, 36] {
+                _ = ProviderIconStore.glyph(.codex, side: side, tint: nil)
+                _ = ProviderIconStore.glyph(.claude, side: side, tint: nil)
+            }
+        }
     }
 
     private func startPolling() {
@@ -232,7 +244,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 gates[provider] = gate
                 changed = model.apply(provider: provider, connection: .connected, health: health, reason: nil,
                                       summary: summary, title: snapshot.displaySessionTitle,
-                                      activity: snapshot.activity, observedAt: snapshot.observedAt)
+                                      activity: snapshot.activity, observedAt: snapshot.observedAt,
+                                      sessionKind: snapshot.kind)
                 if provider == .claude, version != model.claudeVersion { model.claudeVersion = version }
             } catch {
                 if model.status(for: provider).connection != .unavailable {
@@ -458,6 +471,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } ?? false,
             "liveSessions": claudeRegistry?.entries.count ?? 0,
             "malformedSessions": claudeRegistry?.malformed ?? 0,
+            "coworkSessions": claudeConfiguration.flatMap {
+                ClaudeCoworkStore.scan(base: $0.coworkDirectory).sessions.count
+            } ?? 0,
+            "providerIcons": PrivacyDiagnostics.safeVersion(ProviderIconStore.diagnosticSummary),
             "version": PrivacyDiagnostics.safeVersion(claudeRegistry?.version)
         ]
         output["claude"] = claudeDiagnostics
@@ -505,16 +522,23 @@ enum CodexIslandMain {
         }
         if options.checkResources {
             let languages = ["en", "zh-Hans", "zh-Hant", "ja"]
-            let valid = languages.allSatisfy { language in
+            let localized = languages.allSatisfy { language in
                 guard let bundle = L10n.localizedBundle(language) else { return false }
                 let value = bundle.localizedString(forKey: "settings.window.title", value: nil, table: nil)
                 return !value.isEmpty && value != "settings.window.title"
             }
-            guard valid, AppResources.bundle.url(forResource: "AppIcon", withExtension: "png", subdirectory: "Brand") != nil else {
+            let providerIcons = ["claude", "openai"].allSatisfy { name in
+                guard let url = AppResources.bundle.url(
+                    forResource: name, withExtension: "svg",
+                    subdirectory: "Brand/ProviderIcons") else { return false }
+                return NSImage(contentsOf: url) != nil
+            }
+            guard localized, providerIcons,
+                  AppResources.bundle.url(forResource: "AppIcon", withExtension: "png", subdirectory: "Brand") != nil else {
                 print("Packaged resource check failed")
                 exit(1)
             }
-            print("Packaged resources verified: 4 languages and brand icon")
+            print("Packaged resources verified: 4 languages, brand icon and provider icons")
             return
         }
         let app = NSApplication.shared

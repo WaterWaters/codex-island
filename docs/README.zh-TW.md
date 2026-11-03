@@ -117,11 +117,11 @@ v0.8.0 另提供標題隱私、選用登入時啟動、主動啟用的 ⌃⌥⌘
 
 Codex 的內部資料格式可能改變。來源不相容時會顯示無法使用，不會假裝閒置。v0.7.3 起支援啟動環境中絕對目錄的 `CODEX_HOME`，無效覆寫會明確報錯；事件失敗會採用有上限的退避重試，保留資料庫已確認的活動並顯示同步受限。已發布的 v0.7.2 讀取 `~/.codex/`。詳見 [本機來源限制](local-session-source.md)。
 
-### v0.9.0 的 Claude Code 支援
+### v0.9.1 的 Claude Code 支援
 
 選單列與連線設定可選 **Codex**、**Claude** 或 **自動輪播**。輪播通常每 6 秒切換，優先保留需要介入或受阻的來源，游標移入時暫停；狀態島與 VoiceOver 標明目前來源。點擊 Claude 開啟桌面應用程式，不猜測終端機視窗或特定工作階段。
 
-Claude 唯讀存取本機 `~/.claude` 活動登錄與有界事件投影；自訂目錄以啟動環境中的絕對路徑 `CLAUDE_CONFIG_DIR` 指定，無效指定會明確報錯。診斷不含標題、路徑、工作階段 ID 或訊息內容；`CodexIslandProbe --source all` 可檢查兩個來源。
+Claude 唯讀存取本機 `~/.claude` 活動登錄與有界事件投影；桌面 Cowork（本地代理模式）工作階段以相同約束讀取其在 `~/Library/Application Support/Claude-3p` 內的嵌套資料。自訂目錄以啟動環境中的絕對路徑 `CLAUDE_CONFIG_DIR` 指定，同時停用 cowork 探索，無效指定會明確報錯。診斷不含標題、路徑、工作階段 ID 或訊息內容；`CodexIslandProbe --source all` 可檢查兩個來源。
 
 已記錄的相容對象為 Claude Code 2.1.309 的 `claude-desktop-3p` 入口，CLI / IDE 登錄涵蓋範圍仍待驗證。來源缺失、歧義或無法讀取時顯示不可用或同步受限，完成不等於未讀；寵物仍使用本機 Codex 素材。[Claude 來源與限制](claude-session-source.md)。
 
