@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codex Island — your Codex and Claude Code sessions, at a glance</title>
+  <meta name="description" content="A native macOS status island for Codex and Claude Code: local session activity, input reminders, and optional companions. Read-only, local by default.">
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      font: 16px/1.6 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: canvas;
+      color: canvastext;
+    }
+    main { max-width: 640px; margin: 0 auto; padding: 48px 24px 64px; }
+    img.banner { width: 100%; border-radius: 12px; }
+    h1 { font-size: 2rem; margin: 24px 0 8px; text-align: center; }
+    p.tagline { text-align: center; margin: 0 0 32px; }
+    a.cta {
+      display: inline-block; margin: 8px 0; padding: 10px 20px;
+      border-radius: 10px;
+      border: 1px solid color-mix(in srgb, canvastext 25%, transparent);
+      background: color-mix(in srgb, accentcolor 12%, canvas);
+      color: canvastext; text-decoration: none; font-weight: 600;
+    }
+    a.cta:hover { background: color-mix(in srgb, accentcolor 22%, canvas); }
+    ul { padding-left: 1.2em; }
+    footer { margin-top: 48px; font-size: 0.85rem; opacity: 0.7; text-align: center; }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="banner" src="assets/banner.png" alt="Codex Island — aquatic cat and terminal prompt">
+    <h1>Codex Island</h1>
+    <p class="tagline">Your Codex and Claude Code sessions, at a glance.</p>
+
+    <p>
+      <a class="cta" href="https://github.com/WaterWaters/codex-island/releases">Download the preview</a>
+      <a class="cta" href="https://github.com/WaterWaters/codex-island#readme">Read the docs</a>
+    </p>
+
+    <p>A native macOS status island that follows your local coding sessions:
+    activity, recognized input waits, errors, and a small pet for company.
+    Read-only and local by default — no telemetry, no network service,
+    and it never sends chat messages or approves requests.</p>
+
+    <ul>
+      <li><strong>Codex and Claude Code.</strong> Choose a source or let the island rotate automatically.</li>
+      <li><strong>Notch-aware placement.</strong> Full island or compact Mini mode, Reduce Motion supported.</li>
+      <li><strong>macOS 14+.</strong> Swift 6, SwiftUI and AppKit; no third-party Swift package dependencies.</li>
+    </ul>
+
+    <footer>
+      <p><a href="https://github.com/WaterWaters/codex-island">Source on GitHub</a> · MIT license · Preview software, ad-hoc signed and not notarized.</p>
+    </footer>
+  </main>
+</body>
+</html>
